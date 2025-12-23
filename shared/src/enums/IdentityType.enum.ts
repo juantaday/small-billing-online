@@ -1,5 +1,2 @@
-export enum IdentityType {
-  CEDULA = 1,
-  RUC = 2,
-  PASAPORTE = 3
-}
+// Re-exportar el enum de Prisma para mantener consistencia
+export { IdentityType } from '@prisma/client';

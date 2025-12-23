@@ -13,19 +13,290 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ==================== ENUMS ====================
+
+enum Gender {
+  MASCULINO
+  FEMENINO
+  OTRO
+}
+
+enum PersonType {
+  NATURAL
+  JURIDICA
+}
+
+enum IdentityType {
+  CEDULA
+  RUC
+  PASAPORTE
+}
+
+enum LoyaltyTransactionType {
+  EARNED // Ganó puntos por compra
+  REDEEMED // Canjeó puntos
+  EXPIRED // Puntos expirados
+  ADJUSTED // Ajuste manual
+}
+
+enum RewardType {
+  PRODUCT // Producto físico del inventario
+  DISCOUNT_PERCENTAGE // Descuento en porcentaje (ej: 20%)
+  DISCOUNT_FIXED // Descuento fijo (ej: $5)
+  COUPON // Cupón especial
+}
+
+// ==================== MODELS ====================
 
 model People {
-  id             String    @id @default(uuid())
-  firstName      String    @map("first_name") @db.VarChar(60)
-  lastName       String?   @map("last_name") @db.VarChar(60)
-  rucCi          String    @unique @map("ruc_ci") @db.VarChar(13)
-  birthDate      DateTime? @map("birth_date") @db.Date
-  mainEmail      String?   @unique @map("main_email") @db.VarChar(100)
-  phone          String?   @db.VarChar(30)
-  address        String?   @db.VarChar(255)
-  personType     Int       @map("person_type") @db.SmallInt
-  identityType   Int       @map("identity_type") @db.SmallInt
-  dateRegistered DateTime  @default(now()) @map("date_registered")
+  id             String       @id @default(cuid())
+  firstName      String       @map("first_name") @db.VarChar(60)
+  lastName       String?      @map("last_name") @db.VarChar(60)
+  rucCi          String       @unique @map("ruc_ci") @db.VarChar(13)
+  birthDate      DateTime?    @map("birth_date") @db.Date
+  mainEmail      String?      @unique @map("main_email") @db.VarChar(100)
+  phone          String?      @db.VarChar(30)
+  address        String?      @db.VarChar(255)
+  personType     PersonType   @map("person_type")
+  identityType   IdentityType @map("identity_type")
+  dateRegistered DateTime     @default(now()) @map("date_registered")
+
+  // Relaciones
+  user     User?
+  customer Customer?
 
   @@map("peoples")
+}
+
+model User {
+  id             String   @id @default(cuid())
+  firstName      String   @map("first_name") @db.VarChar(60)
+  lastName       String   @map("last_name") @db.VarChar(60)
+  email          String   @unique @db.VarChar(100)
+  confirmedEmail Boolean  @default(false) @map("confirmed_email")
+  phoneNumber    String?  @map("phone_number") @db.VarChar(30)
+  gender         Gender
+  dateOfBirth    DateTime @map("date_of_birth") @db.Date
+  codUser        String?  @unique @map("cod_user") @db.VarChar(9)
+  address        String?  @db.VarChar(255)
+  alias          String   @db.VarChar(50)
+  urlImage       String?  @map("url_image") @db.VarChar(500)
+  active         Boolean  @default(true)
+  password       String   @db.VarChar(255)
+  refreshToken   String?  @map("refresh_token") @db.VarChar(500)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  // Relación uno a uno con People (nullable)
+  peopleId String? @unique @map("people_id")
+  people   People? @relation(fields: [peopleId], references: [id])
+
+  @@map("users")
+}
+
+// ==================== CUSTOMER & LOYALTY ====================
+
+model Customer {
+  id String @id @default(cuid())
+
+  // Relación 1:1 con People
+  peopleId String @unique @map("people_id")
+  people   People @relation(fields: [peopleId], references: [id])
+
+  // Relación con categoría
+  customerCategoryId String           @map("customer_category_id")
+  customerCategory   CustomerCategory @relation(fields: [customerCategoryId], references: [id])
+
+  // Información comercial
+  totalPurchases         Decimal   @default(0) @map("total_purchases") @db.Decimal(10, 2)
+  lastPurchaseDate       DateTime? @map("last_purchase_date")
+  loyaltyPoints          Int       @default(0) @map("loyalty_points")
+  preferredPaymentMethod String?   @map("preferred_payment_method") @db.VarChar(50)
+  active                 Boolean   @default(true)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relaciones
+  loyaltyTransactions LoyaltyTransaction[]
+
+  @@map("customers")
+}
+
+model CustomerCategory {
+  id                 String  @id @default(cuid())
+  name               String  @unique @db.VarChar(100)
+  discountPercentage Decimal @default(0) @map("discount_percentage") @db.Decimal(5, 2) // 0-100
+  pointsMultiplier   Decimal @default(1) @map("points_multiplier") @db.Decimal(3, 2) // ej: 1.5x
+  ticketThreshold    Decimal @map("ticket_threshold") @db.Decimal(10, 2) // Valor mínimo para generar 1 ticket
+  color              String? @db.VarChar(7) // Color hex: #FF0000
+  active             Boolean @default(true)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relaciones
+  customers Customer[]
+
+  @@map("customer_categories")
+}
+
+model LoyaltyTransaction {
+  id         String   @id @default(cuid())
+  customerId String   @map("customer_id")
+  customer   Customer @relation(fields: [customerId], references: [id])
+
+  points      Int // Positivo o negativo
+  type        LoyaltyTransactionType
+  description String                 @db.VarChar(255)
+
+  // Referencias opcionales
+  orderId  String? @map("order_id") // Para implementar después
+  rewardId String? @map("reward_id")
+  reward   Reward? @relation(fields: [rewardId], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("loyalty_transactions")
+}
+
+model Reward {
+  id          String     @id @default(cuid())
+  name        String     @db.VarChar(150)
+  description String?    @db.Text
+  rewardType  RewardType @map("reward_type")
+
+  // Costos en puntos
+  pointsCost Int @map("points_cost")
+
+  // Para rewards tipo PRODUCT
+  presentationId String?       @map("presentation_id")
+  presentation   Presentation? @relation(fields: [presentationId], references: [id])
+  stock          Int           @default(0) // Stock de rewards (no afecta inventario real)
+
+  // Para rewards tipo DISCOUNT
+  discountValue Decimal? @map("discount_value") @db.Decimal(10, 2) // 20 para 20% o $20
+
+  // Validez
+  validFrom  DateTime? @map("valid_from")
+  validUntil DateTime? @map("valid_until")
+
+  // Otros
+  imageUrl String? @map("image_url") @db.VarChar(500)
+  active   Boolean @default(true)
+  terms    String? @db.Text // Términos y condiciones
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relaciones
+  loyaltyTransactions LoyaltyTransaction[]
+
+  @@map("rewards")
+}
+
+// ==================== PRODUCTS ====================
+
+model Category {
+  id           String  @id @default(cuid())
+  name         String  @unique @db.VarChar(60)
+  icon         String? @db.VarChar(50) // Emoji o nombre de icono
+  color        String? @db.VarChar(7) // Color hex
+  displayOrder Int     @default(0) @map("display_order")
+  active       Boolean @default(true)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relaciones
+  products Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id         String   @id @default(cuid())
+  categoryId String   @map("category_id")
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  name             String  @db.VarChar(60)
+  slug             String  @unique @db.VarChar(150)
+  shortDescription String? @map("short_description") @db.VarChar(20)
+  active           Boolean @default(true)
+  featured         Boolean @default(false) // Producto destacado
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relaciones
+  images        ProductImage[]
+  presentations Presentation[]
+
+  @@map("products")
+}
+
+model ProductImage {
+  id        String  @id @default(cuid())
+  productId String  @map("product_id")
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  imageUrl     String  @map("image_url") @db.VarChar(500)
+  altText      String? @map("alt_text") @db.VarChar(255)
+  isPrimary    Boolean @default(false) @map("is_primary") // Imagen principal
+  displayOrder Int     @default(0) @map("display_order")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("product_images")
+}
+
+model Presentation {
+  id        String  @id @default(cuid())
+  productId String  @map("product_id")
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  name     String @db.VarChar(100) // "Unidad", "x6", "Docena"
+  quantity Int // Cantidad de unidades en esta presentación
+  barcode  String @unique @db.VarChar(50)
+
+  // Precios
+  costPrice        Decimal  @map("cost_price") @db.Decimal(10, 2)
+  lastCostPrice    Decimal? @map("last_cost_price") @db.Decimal(10, 2) // Última compra
+  averageCostPrice Decimal? @map("average_cost_price") @db.Decimal(10, 2) // Costo promedio
+  salePrice        Decimal  @map("sale_price") @db.Decimal(10, 2)
+
+  // Inventario
+  stock    Int  @default(0)
+  minStock Int? @default(0) @map("min_stock") // Stock mínimo
+  maxStock Int? @map("max_stock") // Stock máximo
+
+  active Boolean @default(true)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relaciones
+  rewards Reward[] // Rewards que usan esta presentación
+
+  @@map("presentations")
+}
+
+// ==================== PAYMENT METHODS ====================
+
+model PaymentMethod {
+  id   String  @id @default(cuid())
+  name String  @unique @db.VarChar(100) // "Efectivo", "Tarjeta", "Pichincha", "Transferencia"
+  code String  @unique @db.VarChar(50) // "CASH", "CARD", "PICHINCHA", "TRANSFER"
+  icon String? @db.VarChar(50)
+
+  // Configuración
+  requiresReference Boolean @default(false) @map("requires_reference") // Si requiere número de referencia
+  allowsChange      Boolean @default(false) @map("allows_change") // Si permite dar cambio
+
+  active Boolean @default(true)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("payment_methods")
 }
