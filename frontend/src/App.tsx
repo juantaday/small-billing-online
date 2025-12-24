@@ -2,12 +2,14 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
-import { Dashboard } from './pages/Dashboard';
-import { DashboardNew } from './pages/DashboardNew';
 import { Products } from './pages/Products';
 import { Categories } from './pages/CategoriesPage';
+import Customers from './pages/Customers';
+import CustomerCategoriesPage from './pages/CustomerCategoriesPage';
 import { MainLayout } from './components/Layout/MainLayout';
 import { Cart } from './components/Cart/Cart';
+import { Dashboard } from './pages/Dashboard';
+
 
 function App() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -38,13 +40,14 @@ function App() {
         {/* Rutas protegidas con Layout */}
         {isAuthenticated ? (
           <>
-            <Route path="/dashboard" element={<MainLayout><DashboardNew /></MainLayout>} />
+            <Route path="/dashboard" element={<MainLayout><Dashboard /></MainLayout>} />
             <Route path="/products" element={<MainLayout><Products /></MainLayout>} />
             <Route path="/categories" element={<MainLayout><Categories /></MainLayout>} />
-            <Route path="/orders" element={<MainLayout><DashboardNew /></MainLayout>} />
-            <Route path="/reports" element={<MainLayout><DashboardNew /></MainLayout>} />
-            <Route path="/customers" element={<MainLayout><Dashboard /></MainLayout>} />
-            <Route path="/settings" element={<MainLayout><DashboardNew /></MainLayout>} />
+            <Route path="/orders" element={<MainLayout><Dashboard /></MainLayout>} />
+            <Route path="/reports" element={<MainLayout><Dashboard /></MainLayout>} />
+            <Route path="/customers" element={<MainLayout><Customers /></MainLayout>} />
+            <Route path="/customer-categories" element={<MainLayout><CustomerCategoriesPage /></MainLayout>} />
+            <Route path="/settings" element={<MainLayout><Dashboard /></MainLayout>} />
             <Route path="/" element={<Navigate to="/dashboard" />} />
           </>
         ) : (

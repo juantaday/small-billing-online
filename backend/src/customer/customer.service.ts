@@ -178,6 +178,24 @@ export class CustomerService {
       people: customer.people,
       customerCategory: customer.customerCategory,
     }));
-    
+  }
+
+  async delete(id: string): Promise<CustomerDto> {
+    const customer = await prisma.customer.update({
+      where: { id },
+      data: { active: false },
+    });
+
+    return {
+      id: customer.id,
+      peopleId: customer.peopleId,
+      customerCategoryId: customer.customerCategoryId,
+      loyaltyPoints: customer.loyaltyPoints,
+      totalPurchases: customer.totalPurchases.toNumber(),
+      lastPurchaseDate: customer.lastPurchaseDate,
+      active: customer.active,
+      createdAt: customer.createdAt,
+      updatedAt: customer.updatedAt,
+    };
   }
 }

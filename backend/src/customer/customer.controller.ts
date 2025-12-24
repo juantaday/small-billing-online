@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Body, Param, Query } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query } from '@nestjs/common';
 import { CustomerService } from './customer.service';
 import {
   CreateCustomerDto,
@@ -50,5 +50,10 @@ export class CustomerController {
     @Body('points') points: number,
   ): Promise<CustomerDto> {
     return this.customerService.updatePoints(id, points);
+  }
+
+  @Delete(':id')
+  async delete(@Param('id') id: string): Promise<CustomerDto> {
+    return this.customerService.delete(id);
   }
 }

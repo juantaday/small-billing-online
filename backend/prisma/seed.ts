@@ -10,50 +10,50 @@ async function main() {
   console.log('Creating customer categories...');
   const categories = await Promise.all([
     prisma.customerCategory.upsert({
-      where: { name: 'Consumidor Final' },
+      where: { name: 'Usuario Final' },
       update: {},
       create: {
-        name: 'Consumidor Final',
+        name: 'Usuario Final',
         discountPercentage: 0,
         pointsMultiplier: 1,
-        ticketThreshold: 5, // 1 ticket por cada $5
+        ticketThreshold: 10, // 1 ticket por cada $10
         color: '#6B7280',
         active: true,
       },
     }),
     prisma.customerCategory.upsert({
-      where: { name: 'Preventa' },
+      where: { name: 'Cliente VIP' },
       update: {},
       create: {
-        name: 'Preventa',
-        discountPercentage: 5,
-        pointsMultiplier: 1.2,
+        name: 'Cliente VIP',
+        discountPercentage: 10,
+        pointsMultiplier: 2,
+        ticketThreshold: 5, // 1 ticket por cada $5
+        color: '#F59E0B',
+        active: true,
+      },
+    }),
+    prisma.customerCategory.upsert({
+      where: { name: 'Empresas' },
+      update: {},
+      create: {
+        name: 'Empresas',
+        discountPercentage: 15,
+        pointsMultiplier: 1.5,
         ticketThreshold: 3, // 1 ticket por cada $3
         color: '#3B82F6',
         active: true,
       },
     }),
     prisma.customerCategory.upsert({
-      where: { name: 'Distribuidor' },
+      where: { name: 'Reventa/Distribuidor' },
       update: {},
       create: {
-        name: 'Distribuidor',
-        discountPercentage: 10,
-        pointsMultiplier: 1.5,
+        name: 'Reventa/Distribuidor',
+        discountPercentage: 20,
+        pointsMultiplier: 1.2,
         ticketThreshold: 2, // 1 ticket por cada $2
         color: '#8B5CF6',
-        active: true,
-      },
-    }),
-    prisma.customerCategory.upsert({
-      where: { name: 'VIP' },
-      update: {},
-      create: {
-        name: 'VIP',
-        discountPercentage: 15,
-        pointsMultiplier: 2,
-        ticketThreshold: 1, // 1 ticket por cada $1
-        color: '#F59E0B',
         active: true,
       },
     }),

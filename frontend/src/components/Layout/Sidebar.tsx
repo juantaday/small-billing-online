@@ -1,4 +1,4 @@
-import { Home, ShoppingBag, Package, Users, Settings, ChevronLeft, BarChart3, FileText } from 'lucide-react';
+import { Home, ShoppingBag, Package, Users, Settings, ChevronLeft, BarChart3, FileText, Tag } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
 
@@ -14,6 +14,7 @@ const menuItems = [
   { icon: FileText, label: 'Órdenes', path: '/orders' },
   { icon: BarChart3, label: 'Reportes', path: '/reports' },
   { icon: Users, label: 'Clientes', path: '/customers' },
+  { icon: Tag, label: 'Tipos de Cliente', path: '/customer-categories' },
   { icon: Settings, label: 'Configuración', path: '/settings' },
 ];
 
