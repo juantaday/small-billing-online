@@ -1,3 +1,6 @@
+import { CreateCustomerCategoryDto } from "./CustomerCategory.entity";
+import { PeopleDto } from "./People.entity";
+
 // DTO para crear cliente
 export interface CreateCustomerDto {
   peopleId: string;
@@ -23,6 +26,6 @@ export interface UpdateCustomerDto extends Partial<Omit<CreateCustomerDto, 'peop
 
 // DTO completo con relaciones pobladas
 export interface CustomerWithRelationsDto extends CustomerDto {
-  people?: any; // PeopleDto
-  customerCategory?: any; // CustomerCategoryDto
+  people?: PeopleDto;
+  customerCategory?: CreateCustomerCategoryDto; 
 }

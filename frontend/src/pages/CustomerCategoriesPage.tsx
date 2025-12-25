@@ -5,34 +5,19 @@ import {
   Edit2, 
   Trash2, 
   Tag,
-  TrendingUp,
   Award,
   X,
   Save,
   Percent
 } from 'lucide-react';
-import { Card } from '../components/UI/Card';
 import clsx from 'clsx';
+import { 
+  CustomerCategoryDto, 
+  CreateCustomerCategoryDto 
+} from '@small-billing/shared';
+import { customerCategoryApi } from '@/entities/customer-category';
+import { Card } from '@/shared/ui';
 
-interface CustomerCategory {
-  id: string;
-  name: string;
-  discountPercentage: number;
-  pointsMultiplier: number;
-  ticketThreshold: number;
-  color?: string;
-  active: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface FormData {
-  name: string;
-  discountPercentage: number;
-  pointsMultiplier: number;
-  ticketThreshold: number;
-  color: string;
-}
 
 const PRESET_COLORS = [
   '#6B7280', // Gris
@@ -46,15 +31,15 @@ const PRESET_COLORS = [
 ];
 
 const CustomerCategoriesPage = () => {
-  const [categories, setCategories] = useState<CustomerCategory[]>([]);
+  const [categories, setCategories] = useState<CustomerCategoryDto[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<CustomerCategory | null>(null);
-  const [deletingCategory, setDeletingCategory] = useState<CustomerCategory | null>(null);
+  const [editingCategory, setEditingCategory] = useState<CustomerCategoryDto | null>(null);
+  const [deletingCategory, setDeletingCategory] = useState<CustomerCategoryDto | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const [formData, setFormData] = useState<FormData>({
+  const [formData, setFormData] = useState<CreateCustomerCategoryDto>({
     name: '',
     discountPercentage: 0,
     pointsMultiplier: 1,
@@ -68,8 +53,7 @@ const CustomerCategoriesPage = () => {
 
   const fetchCategories = async () => {
     try {
-      const response = await fetch('http://localhost:3000/customer-categories');
-      const data = await response.json();
+      const data = await customerCategoryApi.getAll();
       setCategories(data);
     } catch (error) {
       console.error('Error al cargar categorías:', error);
@@ -80,7 +64,7 @@ const CustomerCategoriesPage = () => {
     category.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleOpenModal = (category?: CustomerCategory) => {
+  const handleOpenModal = (category?: CustomerCategoryDto) => {
     if (category) {
       setEditingCategory(category);
       setFormData({
@@ -113,17 +97,11 @@ const CustomerCategoriesPage = () => {
     setLoading(true);
 
     try {
-      const url = editingCategory
-        ? `http://localhost:3000/customer-categories/${editingCategory.id}`
-        : 'http://localhost:3000/customer-categories';
-
-      const method = editingCategory ? 'PUT' : 'POST';
-
-      await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      });
+      if (editingCategory) {
+        await customerCategoryApi.update(editingCategory.id, formData);
+      } else {
+        await customerCategoryApi.create(formData);
+      }
 
       await fetchCategories();
       handleCloseModal();
@@ -140,9 +118,7 @@ const CustomerCategoriesPage = () => {
     
     setLoading(true);
     try {
-      await fetch(`http://localhost:3000/customer-categories/${deletingCategory.id}`, {
-        method: 'DELETE'
-      });
+      await customerCategoryApi.delete(deletingCategory.id);
       
       await fetchCategories();
       setIsDeleteModalOpen(false);
@@ -155,7 +131,7 @@ const CustomerCategoriesPage = () => {
     }
   };
 
-  const openDeleteModal = (category: CustomerCategory) => {
+  const openDeleteModal = (category: CustomerCategoryDto) => {
     setDeletingCategory(category);
     setIsDeleteModalOpen(true);
   };

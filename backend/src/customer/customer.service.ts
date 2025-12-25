@@ -32,7 +32,12 @@ export class CustomerService {
       createdAt: customer.createdAt,
       updatedAt: customer.updatedAt,
       people: customer.people,
-      customerCategory: customer.customerCategory,
+      customerCategory: customer.customerCategory ? {
+        ...customer.customerCategory,
+        discountPercentage: customer.customerCategory.discountPercentage.toNumber(),
+        pointsMultiplier: customer.customerCategory.pointsMultiplier.toNumber(),
+        ticketThreshold: customer.customerCategory.ticketThreshold.toNumber(),
+      } : undefined,
     }));
   }
 
@@ -62,7 +67,12 @@ export class CustomerService {
       createdAt: customer.createdAt,
       updatedAt: customer.updatedAt,
       people: customer.people,
-      customerCategory: customer.customerCategory,
+      customerCategory: customer.customerCategory ? {
+        ...customer.customerCategory,
+        discountPercentage: customer.customerCategory.discountPercentage.toNumber(),
+        pointsMultiplier: customer.customerCategory.pointsMultiplier.toNumber(),
+        ticketThreshold: customer.customerCategory.ticketThreshold.toNumber(),
+      } : undefined,
     };
   }
 
@@ -176,7 +186,12 @@ export class CustomerService {
       createdAt: customer.createdAt,
       updatedAt: customer.updatedAt,
       people: customer.people,
-      customerCategory: customer.customerCategory,
+      customerCategory: customer.customerCategory ? {
+        ...customer.customerCategory,
+        discountPercentage: customer.customerCategory.discountPercentage.toNumber(),
+        pointsMultiplier: customer.customerCategory.pointsMultiplier.toNumber(),
+        ticketThreshold: customer.customerCategory.ticketThreshold.toNumber(),
+      } : undefined,
     }));
   }
 

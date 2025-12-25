@@ -1,7 +1,7 @@
 import { Grid, List } from 'lucide-react';
 import { useState } from 'react';
-import { Card } from '../components/UI/Card';
 import clsx from 'clsx';
+import { Card } from '@/shared/ui';
 
 interface Category {
   id: number;
@@ -79,7 +79,8 @@ const categories: Category[] = [
   }
 ];
 
-export const Categories = () => {
+
+export const CategoriesPage = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   return (
@@ -187,3 +188,4 @@ export const Categories = () => {
     </div>
   );
 };
+
