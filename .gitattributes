@@ -1,3 +1,6 @@
+# Normaliza automáticamente archivos de texto
+* text=auto
+
 # Fuerza LF en código
 *.ts   text eol=lf
 *.tsx  text eol=lf
@@ -5,3 +8,6 @@
 *.json text eol=lf
 *.css  text eol=lf
 *.html text eol=lf
+
+# Lockfile
+pnpm-lock.yaml text eol=lf
