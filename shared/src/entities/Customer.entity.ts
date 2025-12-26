@@ -1,27 +1,33 @@
 import { CreateCustomerCategoryDto } from "./CustomerCategory.entity";
-import { PeopleDto } from "./People.entity";
+import { CreatePeopleDto, PeopleDto } from "./People.entity";
 
-// DTO para crear cliente
+// DTO para crear cliente (incluye datos de People)
 export interface CreateCustomerDto {
-  peopleId: string;
-  customerCategoryId: string;
+  people: CreatePeopleDto; // Datos de la persona
+  customerCategoryId: string; // Categoría del cliente
   preferredPaymentMethod?: string;
-  active?: boolean;
 }
 
 // DTO de respuesta
-export interface CustomerDto extends CreateCustomerDto {
+export interface CustomerDto {
   id: string;
+  peopleId: string;
+  customerCategoryId: string;
   totalPurchases: number;
-  lastPurchaseDate?: Date;
+  lastPurchaseDate?: Date | null;
   loyaltyPoints: number;
+  preferredPaymentMethod?: string | null;
+  active: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
 
-// DTO para actualizar
-export interface UpdateCustomerDto extends Partial<Omit<CreateCustomerDto, 'peopleId'>> {
+// DTO para actualizar (solo campos que puede modificar, no people)
+export interface UpdateCustomerDto {
   id: string;
+  customerCategoryId?: string;
+  preferredPaymentMethod?: string;
+  people?: Partial<CreatePeopleDto>; // Permitir actualizar datos de people
 }
 
 // DTO completo con relaciones pobladas

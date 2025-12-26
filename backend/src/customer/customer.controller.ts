@@ -1,4 +1,15 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query } from '@nestjs/common';
+import { 
+  Controller, 
+  Get, 
+  Post, 
+  Put, 
+  Delete, 
+  Body, 
+  Param, 
+  Query,
+  HttpException,
+  HttpStatus,
+} from '@nestjs/common';
 import { CustomerService } from './customer.service';
 import {
   CreateCustomerDto,
@@ -33,7 +44,42 @@ export class CustomerController {
 
   @Post()
   async create(@Body() data: CreateCustomerDto): Promise<CustomerDto> {
-    return this.customerService.create(data);
+    try {
+      return await this.customerService.create(data);
+    } catch (error) {
+      // Si el error tiene datos del cliente existente, incluirlos en la respuesta
+      if (error.data?.existingCustomer) {
+        throw new HttpException(
+          {
+            statusCode: HttpStatus.CONFLICT,
+            message: error.message,
+            error: 'Customer Already Exists',
+            data: error.data, // Incluir toda la información del cliente existente
+          },
+          HttpStatus.CONFLICT,
+        );
+      }
+      
+      if (error.message.includes('Unique constraint')) {
+        throw new HttpException(
+          {
+            statusCode: HttpStatus.CONFLICT,
+            message: 'El RUC/CI o email ya están registrados',
+            error: 'Duplicate Entry',
+          },
+          HttpStatus.CONFLICT,
+        );
+      }
+
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+          message: error.message || 'Error al crear el cliente',
+          error: 'Internal Server Error',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 
   @Put(':id')

@@ -39,6 +39,9 @@ export class ProductService {
       category: product.category,
       images: product.images,
       presentations: product.presentations,
+      salePrice:0,
+      lastCostPrice:0,
+      averageCostPrice:0,
     }));
   }
 
@@ -69,6 +72,9 @@ export class ProductService {
       category: product.category,
       images: product.images,
       presentations: product.presentations,
+      salePrice:0,
+      lastCostPrice:0,
+      averageCostPrice:0, 
     }));
   }
 
@@ -101,6 +107,9 @@ export class ProductService {
       category: product.category,
       images: product.images,
       presentations: product.presentations,
+      salePrice:0,  
+      lastCostPrice:0,
+      averageCostPrice:0,
     };
   }
 
@@ -133,6 +142,9 @@ export class ProductService {
       category: product.category,
       images: product.images,
       presentations: product.presentations,
+      salePrice:0,
+      lastCostPrice:0,
+      averageCostPrice:0, 
     };
   }
 
@@ -151,6 +163,9 @@ export class ProductService {
       active: product.active,
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
+      salePrice:0,
+      lastCostPrice: 0,
+      averageCostPrice: 0,
     };
   }
 
@@ -170,6 +185,9 @@ export class ProductService {
       active: product.active,
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
+      salePrice:0,
+      lastCostPrice: 0,
+      averageCostPrice: 0,  
     };
   }
 
@@ -189,6 +207,9 @@ export class ProductService {
       active: product.active,
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
+      salePrice:0,
+      lastCostPrice: 0,
+      averageCostPrice: 0,  
     };
   }
 
@@ -221,6 +242,9 @@ export class ProductService {
       category: product.category,
       images: product.images,
       presentations: product.presentations,
+      salePrice:0,
+      lastCostPrice:0,
+      averageCostPrice:0, 
     }));
   }
 }

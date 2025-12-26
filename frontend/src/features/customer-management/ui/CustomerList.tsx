@@ -6,7 +6,6 @@
 import { useState } from 'react';
 import { Search, Trash2, Edit, UserPlus } from 'lucide-react';
 import { Card, Button, Input } from '@/shared/ui';
-import { cn } from '@/shared/lib';
 import { CustomerWithRelationsDto } from '@small-billing/shared';
 
 interface CustomerListProps {
@@ -117,7 +116,7 @@ export function CustomerList({
                   const lastName = people?.lastName || '';
                   const fullName = `${firstName} ${lastName}`.trim() || 'Sin nombre';
                   const initials = firstName && lastName ? `${firstName[0]}${lastName[0]}` : '?';
-                  
+                
                   return (
                     <tr
                       key={customer.id}
@@ -126,7 +125,7 @@ export function CustomerList({
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center">
-                            <span className="text-red-600 font-semibold">
+                            <span className="text-red-600 font-semibold" translate="no">
                               {initials}
                             </span>
                           </div>

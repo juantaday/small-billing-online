@@ -12,9 +12,9 @@ export interface CreateProductDto {
 // DTO de respuesta
 export interface ProductDto extends CreateProductDto {
   id: string;
-  price: number;
-  costPrice: number;
-  taxRate: number;
+  salePrice: number;
+  lastCostPrice: number;
+  averageCostPrice: number;
   createdAt: Date;
   updatedAt: Date;
 }
