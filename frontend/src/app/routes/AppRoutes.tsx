@@ -11,6 +11,7 @@ import { CartWidget } from '@/widgets/cart-widget';
 import { LoginPage } from '@/pages/LoginPage';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { ProductsPage } from '@/pages/ProductsPage';
+import { ProductManagementPage } from '@/pages/ProductManagementPage';
 import { CustomersPage } from '@/pages/CustomersPage';
 import {CategoriesPage} from '@/pages/CategoriesPage';
 import CustomerCategoriesPage from '@/pages/CustomerCategoriesPage';
@@ -65,6 +66,16 @@ export function AppRoutes() {
             <PrivateRoute>
               <MainLayout>
                 <ProductsPage />
+              </MainLayout>
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path={ROUTES.PRODUCT_MANAGEMENT}
+          element={
+            <PrivateRoute>
+              <MainLayout>
+                <ProductManagementPage />
               </MainLayout>
             </PrivateRoute>
           }

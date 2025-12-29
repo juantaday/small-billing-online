@@ -1,10 +1,15 @@
 import { PrismaClient } from '@prisma/client';
+import { seedTaxes } from './tax.seed';
+
 
 const prisma = new PrismaClient();
 
 async function main() {
 
   console.log('🌱 Seeding database...');
+
+  // 0. Taxes (SRI Ecuador)
+  await seedTaxes(prisma);
 
   // 1. Customer Categories
   console.log('Creating customer categories...');
@@ -131,7 +136,7 @@ async function main() {
     data: {
       name: 'Hamburguesa Original',
       slug: 'hamburguesa-original',
-      shortDescription: 'Hamburguesa clásica con carne 100% de res',
+      shortDescription: 'Carne 100% res',
       categoryId: productCategories[0].id,
       featured: true,
       active: true,
@@ -196,7 +201,7 @@ async function main() {
     data: {
       name: 'Pollo Crujiente',
       slug: 'pollo-crujiente',
-      shortDescription: 'Deliciosas piezas de pollo frito crujiente',
+      shortDescription: 'Pollo frito',
       categoryId: productCategories[1].id,
       featured: true,
       active: true,
@@ -252,7 +257,7 @@ async function main() {
     data: {
       name: 'Papas Fritas',
       slug: 'papas-fritas',
-      shortDescription: 'Papas doradas y crujientes',
+      shortDescription: 'Papas doradas',
       categoryId: productCategories[2].id,
       active: true,
       images: {

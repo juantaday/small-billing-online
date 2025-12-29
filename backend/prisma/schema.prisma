@@ -171,7 +171,7 @@ model Reward {
 
   // Para rewards tipo PRODUCT
   presentationId String?       @map("presentation_id")
-  presentation   Presentation? @relation(fields: [presentationId], references: [id])
+  presentation   Presentation? @relation("PresentationRewards", fields: [presentationId], references: [id])
   stock          Int           @default(0) // Stock de rewards (no afecta inventario real)
 
   // Para rewards tipo DISCOUNT
@@ -225,12 +225,21 @@ model Product {
   active           Boolean @default(true)
   featured         Boolean @default(false) // Producto destacado
 
+  // Presentaciones por defecto
+  defaultPurchasePresentationId String? @map("default_purchase_presentation_id")
+  defaultSalePresentationId     String? @map("default_sale_presentation_id")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relaciones
   images        ProductImage[]
-  presentations Presentation[]
+  presentations Presentation[] @relation("ProductPresentations")
+  productTaxes  ProductTax[]
+
+  // Relaciones con presentaciones por defecto
+  defaultPurchasePresentation Presentation? @relation("DefaultPurchasePresentation", fields: [defaultPurchasePresentationId], references: [id], onDelete: SetNull)
+  defaultSalePresentation     Presentation? @relation("DefaultSalePresentation", fields: [defaultSalePresentationId], references: [id], onDelete: SetNull)
 
   @@map("products")
 }
@@ -253,7 +262,7 @@ model ProductImage {
 model Presentation {
   id        String  @id @default(cuid())
   productId String  @map("product_id")
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product   Product @relation("ProductPresentations", fields: [productId], references: [id], onDelete: Cascade)
 
   name     String @db.VarChar(100) // "Unidad", "x6", "Docena"
   quantity Int // Cantidad de unidades en esta presentación
@@ -276,7 +285,9 @@ model Presentation {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relaciones
-  rewards Reward[] // Rewards que usan esta presentación
+  rewards                        Reward[]  @relation("PresentationRewards")
+  defaultForPurchaseInProducts   Product[] @relation("DefaultPurchasePresentation")
+  defaultForSaleInProducts       Product[] @relation("DefaultSalePresentation")
 
   @@map("presentations")
 }
@@ -299,4 +310,75 @@ model PaymentMethod {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("payment_methods")
+}
+
+// ==================== TAXES (Estructura SRI Ecuador) ====================
+
+// Tabla principal de impuestos (IVA, ICE, IRBPNR, etc.)
+model Tax {
+  id          String  @id @default(cuid())
+  code        Int     @unique @default(autoincrement()) // Código numérico del impuesto
+  description String  @map("description") @db.VarChar(255) // Descripción del impuesto
+  active      Boolean @default(true) @map("active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relaciones
+  taxValues TaxValue[]
+
+  @@map("taxes")
+}
+
+// Valores/tasas específicas de cada impuesto con vigencia
+model TaxValue {
+  id          String   @id @default(cuid())
+  code        String   @unique @db.VarChar(255) // Código del valor (ej: "2", "3", "5")
+  taxId       String   @map("tax_id")
+  tax         Tax      @relation(fields: [taxId], references: [id], onDelete: Cascade)
+  
+  percentage          Decimal @db.Decimal(18, 2) // Porcentaje del impuesto
+  retentionPercentage Decimal? @map("retention_percentage") @db.Decimal(18, 3) // Porcentaje de retención
+  taxType             String  @map("tax_type") @db.VarChar(1) // Tipo de impuesto
+  description         String  @db.VarChar(600) // Descripción del valor
+  
+  // Vigencia
+  startDate DateTime @map("start_date") @db.Date
+  endDate   DateTime? @map("end_date") @db.Date
+  
+  // Configuración adicional
+  adminCode              Int     @map("admin_code") // Código administrativo
+  freePercentageMark     String  @map("free_percentage_mark") @db.VarChar(1) // Marca de porcentaje libre
+  calculateWithQuantity  String? @map("calculate_with_quantity") @db.Text // Si calcula con cantidad
+  
+  active Boolean @default(true)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relaciones
+  productTaxes ProductTax[]
+
+  @@map("tax_values")
+}
+
+// Vinculación de productos con tasas de impuestos
+model ProductTax {
+  id           String   @id @default(cuid())
+  productId    String   @map("product_id")
+  taxValueCode String   @map("tax_value_code") @db.VarChar(255) // Código del valor de impuesto
+  
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  taxValue TaxValue @relation(fields: [taxValueCode], references: [code], onDelete: Cascade)
+
+  // Permite override del porcentaje para este producto específico
+  customPercent    Decimal? @map("custom_percent") @db.Decimal(5, 4)
+  isDefaultVat     Boolean  @default(false) @map("is_default_vat") // Si es el IVA por defecto
+  active           Boolean  @default(true)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([productId, taxValueCode])
+  @@map("product_taxes")
 }

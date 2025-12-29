@@ -19,6 +19,7 @@ export const ROUTES = {
   HOME: '/',
   DASHBOARD: '/dashboard',
   PRODUCTS: '/products',
+  PRODUCT_MANAGEMENT: '/products/management',
   CATEGORIES: '/categories',
   CUSTOMERS: '/customers',
   CUSTOMER_CATEGORIES: '/customer-categories',

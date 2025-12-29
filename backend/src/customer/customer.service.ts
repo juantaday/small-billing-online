@@ -11,6 +11,8 @@ const prisma = new PrismaClient();
 
 @Injectable()
 export class CustomerService {
+
+
   async findAll(): Promise<CustomerWithRelationsDto[]> {
     const customers = await prisma.customer.findMany({
       where: { active: true },
@@ -270,6 +272,83 @@ export class CustomerService {
     const customer = await prisma.customer.update({
       where: { id },
       data: customerData,
+    });
+
+    return {
+      id: customer.id,
+      peopleId: customer.peopleId,
+      customerCategoryId: customer.customerCategoryId,
+      loyaltyPoints: customer.loyaltyPoints,
+      totalPurchases: customer.totalPurchases.toNumber(),
+      lastPurchaseDate: customer.lastPurchaseDate,
+      active: customer.active,
+      createdAt: customer.createdAt,
+      updatedAt: customer.updatedAt,
+    };
+  }
+
+  async getTopCustomers(limit: number): Promise<CustomerWithRelationsDto[]> {
+    const customers = await prisma.customer.findMany({
+      where: { active: true },
+      include: {
+        people: true,
+        customerCategory: true,
+      },
+      orderBy: [
+        { loyaltyPoints: 'desc' },
+        { totalPurchases: 'desc' },
+      ],
+      take: limit,
+    });
+
+    return customers.map((customer) => ({
+      id: customer.id,
+      peopleId: customer.peopleId,
+      customerCategoryId: customer.customerCategoryId,
+      loyaltyPoints: customer.loyaltyPoints,
+      totalPurchases: customer.totalPurchases.toNumber(),
+      lastPurchaseDate: customer.lastPurchaseDate,
+      active: customer.active,
+      createdAt: customer.createdAt,
+      updatedAt: customer.updatedAt,
+      people: customer.people,
+      customerCategory: customer.customerCategory ? {
+        ...customer.customerCategory,
+        discountPercentage: customer.customerCategory.discountPercentage.toNumber(),
+        pointsMultiplier: customer.customerCategory.pointsMultiplier.toNumber(),
+        ticketThreshold: customer.customerCategory.ticketThreshold.toNumber(),
+      } : undefined,
+    }));
+  }
+
+  async updatePoints(id: string, points: number): Promise<CustomerDto> {
+    const customer = await prisma.customer.update({
+      where: { id },
+      data: {
+        loyaltyPoints: points,
+      },
+    });
+
+    return {
+      id: customer.id,
+      peopleId: customer.peopleId,
+      customerCategoryId: customer.customerCategoryId,
+      loyaltyPoints: customer.loyaltyPoints,
+      totalPurchases: customer.totalPurchases.toNumber(),
+      lastPurchaseDate: customer.lastPurchaseDate,
+      active: customer.active,
+      createdAt: customer.createdAt,
+      updatedAt: customer.updatedAt,
+    };
+  }
+
+  async delete(id: string): Promise<CustomerDto> {
+    // Soft delete: marcar como inactivo en lugar de eliminar
+    const customer = await prisma.customer.update({
+      where: { id },
+      data: {
+        active: false,
+      },
     });
 
     return {

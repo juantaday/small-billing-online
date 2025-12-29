@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button, Input } from '@/shared/ui';
 import { useAuth } from '../model/use-auth';
 import { ROUTES } from '@/shared/config';
+import { Loader2 } from 'lucide-react';
 
 export function LoginForm() {
   const navigate = useNavigate();
@@ -63,8 +64,14 @@ export function LoginForm() {
         type="submit"
         fullWidth
         disabled={isLoading}
+        className="relative"
       >
-        {isLoading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
+        {isLoading && (
+          <Loader2 className="w-5 h-5 animate-spin absolute left-4" />
+        )}
+        <span className={isLoading ? 'ml-6' : ''}>
+          {isLoading ? 'Autenticando...' : 'Iniciar Sesión'}
+        </span>
       </Button>
     </form>
   );

@@ -15,6 +15,8 @@ import {
   ChevronLeft,
   ShoppingBag,
   FileText,
+  ShoppingCartIcon,
+  PackagePlus,
 } from 'lucide-react';
 import { ROUTES } from '@/shared/config';
 import { cn } from '@/shared/lib';
@@ -26,7 +28,8 @@ interface SidebarProps {
 
 const navigation = [
   { name: 'Dashboard', href: ROUTES.DASHBOARD, icon: LayoutDashboard },
-  { name: 'Productos', href: ROUTES.PRODUCTS, icon: ShoppingBag },
+  { name: 'Menú (Ventas)', href: ROUTES.PRODUCTS, icon: ShoppingBag },
+  { name: 'Gestión Productos', href: ROUTES.PRODUCT_MANAGEMENT, icon: PackagePlus },
   { name: 'Categorías', href: ROUTES.CATEGORIES, icon: Package },
   { name: 'Clientes', href: ROUTES.CUSTOMERS, icon: Users },
   { name: 'Categorías Cliente', href: ROUTES.CUSTOMER_CATEGORIES, icon: FolderOpen },
@@ -59,13 +62,18 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       >
         {/* Logo y botón de cierre */}
         <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center">
-              <ShoppingCart className="w-5 h-5 text-white" />
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-red-600 to-orange-600 rounded-xl flex items-center justify-center shadow-lg">
+              <ShoppingCartIcon className="w-6 h-6 text-white" />
             </div>
-            <span className="font-bold text-xl text-gray-900 dark:text-white">
-              Small Billing
-            </span>
+            <div className="flex flex-col">
+              <span className="font-bold text-lg text-gray-900 dark:text-white leading-tight">
+                QuickBite
+              </span>
+              <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                POS System
+              </span>
+            </div>
           </div>
           <button
             onClick={onClose}

@@ -16,7 +16,7 @@ import {
   CreateCustomerCategoryDto 
 } from '@small-billing/shared';
 import { customerCategoryApi } from '@/entities/customer-category';
-import { Card } from '@/shared/ui';
+import { Card, Loading } from '@/shared/ui';
 
 
 const PRESET_COLORS = [
@@ -38,6 +38,7 @@ const CustomerCategoriesPage = () => {
   const [editingCategory, setEditingCategory] = useState<CustomerCategoryDto | null>(null);
   const [deletingCategory, setDeletingCategory] = useState<CustomerCategoryDto | null>(null);
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
 
   const [formData, setFormData] = useState<CreateCustomerCategoryDto>({
     name: '',
@@ -53,10 +54,15 @@ const CustomerCategoriesPage = () => {
 
   const fetchCategories = async () => {
     try {
+      setInitialLoading(true);
+      
+      // await new Promise(resolve => setTimeout(resolve, 3000));
       const data = await customerCategoryApi.getAll();
       setCategories(data);
     } catch (error) {
       console.error('Error al cargar categorías:', error);
+    } finally {
+      setInitialLoading(false);
     }
   };
 
@@ -135,6 +141,19 @@ const CustomerCategoriesPage = () => {
     setDeletingCategory(category);
     setIsDeleteModalOpen(true);
   };
+
+  // Mostrar loading inicial
+  if (initialLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
+        <Loading 
+          variant="pulse" 
+          size="lg" 
+          message="Cargando categorías..." 
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
