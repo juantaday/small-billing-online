@@ -46,7 +46,7 @@ export function useProducts() {
 
   const updateProduct = async (id: string, data: UpdateProductDto): Promise<ProductDto> => {
     try {
-      const product = await productApi.update(Number(id), data);
+      const product = await productApi.update(id, data);
       await fetchProducts(); // Recargar lista
       return product;
     } catch (err) {
@@ -57,8 +57,9 @@ export function useProducts() {
 
   const deleteProduct = async (id: string): Promise<void> => {
     try {
-      await productApi.delete(Number(id));
-      await fetchProducts(); // Recargar lista
+      await productApi.delete(id);
+      // Actualizar estado local sin hacer fetch al backend
+      setProducts(prevProducts => prevProducts.filter(product => product.id !== id));
     } catch (err) {
       console.error('Error al eliminar producto:', err);
       throw err;

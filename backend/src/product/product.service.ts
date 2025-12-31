@@ -238,7 +238,7 @@ export class ProductService {
         averageCostPrice: 0,
       };
     } catch (error) {
-      this.logger.logDatabaseOperation('DELETE', 'Product', { id }, error);
+      this.logger.logDatabaseOperation('UPDATE', 'Product', { id }, error);
       throw error;
     }
   }

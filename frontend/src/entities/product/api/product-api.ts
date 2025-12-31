@@ -16,7 +16,7 @@ class ProductApi extends BaseApiClient {
     return this.get<ProductDto[]>('/products');
   }
 
-  async getById(id: number): Promise<ProductDto> {
+  async getById(id: string): Promise<ProductDto> {
     return this.get<ProductDto>(`/products/${id}`);
   }
 
@@ -24,11 +24,11 @@ class ProductApi extends BaseApiClient {
     return this.post<ProductDto>('/products', data);
   }
 
-  async update(id: number, data: UpdateProductDto): Promise<ProductDto> {
+  async update(id: string, data: UpdateProductDto): Promise<ProductDto> {
     return this.put<ProductDto>(`/products/${id}`, data);
   }
 
-  async delete(id: number): Promise<void> {
+  async delete(id: string): Promise<void> {
     return this.deleteBase<void>(`/products/${id}`);
   }
 }

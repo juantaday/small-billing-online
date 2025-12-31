@@ -5,7 +5,8 @@
 
 import { useState } from 'react';
 import { Plus, Search, Edit, Trash2, Package, DollarSign, AlertTriangle } from 'lucide-react';
-import { Button, Card, SpinnerLoading } from '@/shared/ui';
+import { Button, Card, ConfirmDialog, SpinnerLoading } from '@/shared/ui';
+import { useToastContext } from '@/app/providers/toast';
 import { useProducts } from '@/entities/product/api/useProducts';
 import { usePresentations } from '@/entities/product/api/usePresentations';
 import { useCategories } from '@/entities/category/api/useCategories';
@@ -19,7 +20,11 @@ export function ProductManagementPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
+  const toast = useToastContext();
   const { products, loading, createProduct, updateProduct, deleteProduct } = useProducts();
   const { createPresentation } = usePresentations();
   const { categories } = useCategories();
@@ -46,15 +51,43 @@ export function ProductManagementPage() {
     setIsWizardOpen(true);
   };
 
-  // Eliminar producto
-  const handleDelete = async (id: string) => {
-    if (confirm('¿Estás seguro de eliminar este producto?')) {
-      try {
-        await deleteProduct(id);
-        alert('Producto eliminado correctamente');
-      } catch (error) {
-        alert('Error al eliminar producto');
-      }
+  // Abrir modal de confirmación para eliminar
+  const handleDeleteClick = (product: any) => {
+    setProductToDelete({ id: product.id, name: product.name });
+    setIsDeleteDialogOpen(true);
+  };
+
+  // Confirmar eliminación
+  const handleConfirmDelete = async () => {
+    if (!productToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      await deleteProduct(productToDelete.id);
+      
+      // Cerrar modal y limpiar estado
+      setIsDeleteDialogOpen(false);
+      setProductToDelete(null);
+      
+      // Mostrar notificación de éxito
+      toast.success(
+        'Producto eliminado',
+        `${productToDelete.name} ha sido desactivado correctamente`
+      );
+    } catch (error: any) {
+      // Log detallado para desarrolladores
+      console.error('❌ Error al eliminar producto:', {
+        productId: productToDelete.id,
+        productName: productToDelete.name,
+        error: error,
+        response: error?.response?.data,
+        timestamp: new Date().toISOString()
+      });
+      
+      // Re-lanzar para que ConfirmDialog lo muestre inline en el modal
+      throw error;
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -313,7 +346,7 @@ export function ProductManagementPage() {
                             <Edit className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => handleDelete(product.id)}
+                            onClick={() => handleDeleteClick(product)}
                             className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 p-1"
                             title="Eliminar"
                           >
@@ -399,6 +432,22 @@ export function ProductManagementPage() {
         onSave={handleSaveProduct}
         initialData={selectedProduct}
         mode={selectedProduct ? 'edit' : 'create'}
+      />
+
+      {/* Modal de confirmación para eliminar */}
+      <ConfirmDialog
+        isOpen={isDeleteDialogOpen}
+        onClose={() => {
+          setIsDeleteDialogOpen(false);
+          setProductToDelete(null);
+        }}
+        onConfirm={handleConfirmDelete}
+        title="Eliminar Producto"
+        message={`¿Estás seguro de que deseas eliminar "${productToDelete?.name}"? Esta acción no se puede deshacer.`}
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        variant="danger"
+        isLoading={isDeleting}
       />
     </div>
   );

@@ -11,3 +11,7 @@ export {
 export type { LoadingVariant, LoadingSize } from './loading';
 export { Stepper } from './Stepper';
 export type { Step } from './Stepper';
+export { ConfirmDialog } from './confirm-dialog';
+export type { ConfirmDialogVariant } from './confirm-dialog';
+export { Toast, ToastContainer, useToast } from './toast';
+export type { ToastType, ToastProps } from './toast';
