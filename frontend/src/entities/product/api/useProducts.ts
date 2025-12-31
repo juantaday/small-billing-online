@@ -4,34 +4,11 @@
  */
 
 import { useState, useEffect } from 'react';
-
-// TODO: Importar desde shared cuando esté disponible
-interface Product {
-  id: string;
-  name: string;
-  slug: string;
-  shortDescription?: string;
-  categoryId: string;
-  featured: boolean;
-  active: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-  category?: any;
-  images?: any[];
-  presentations?: any[];
-}
-
-interface CreateProductRequest {
-  categoryId: string;
-  name: string;
-  slug: string;
-  shortDescription?: string;
-  active?: boolean;
-  featured?: boolean;
-}
+import { productApi } from './product-api';
+import { ProductDto, CreateProductDto, UpdateProductDto, ProductWithRelationsDto } from '@small-billing/shared';
 
 export function useProducts() {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<ProductWithRelationsDto[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,57 +16,52 @@ export function useProducts() {
     setLoading(true);
     setError(null);
     try {
-      const url = categoryId 
-        ? `http://localhost:3000/products?categoryId=${categoryId}`
-        : 'http://localhost:3000/products';
+      // TODO: Agregar filtro por categoryId cuando el API lo soporte
+      const data = await productApi.getAll();
       
-      const response = await fetch(url);
-      if (!response.ok) throw new Error('Error al cargar productos');
+      // Filtrar por categoría en el frontend si es necesario
+      const filteredData = categoryId 
+        ? data.filter(p => p.categoryId === categoryId)
+        : data;
       
-      const data = await response.json();
-      setProducts(data);
+      setProducts(filteredData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido');
+      console.error('Error al cargar productos:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const createProduct = async (data: CreateProductRequest): Promise<Product> => {
-    const response = await fetch('http://localhost:3000/products', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-
-    if (!response.ok) {
-      throw new Error('Error al crear producto');
+  const createProduct = async (data: CreateProductDto): Promise<ProductDto> => {
+    try {
+      const product = await productApi.create(data);
+      await fetchProducts(); // Recargar lista
+      return product;
+    } catch (err) {
+      console.error('Error al crear producto:', err);
+      throw err;
     }
-
-    return response.json();
   };
 
-  const updateProduct = async (id: string, data: Partial<CreateProductRequest>): Promise<Product> => {
-    const response = await fetch(`http://localhost:3000/products/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-
-    if (!response.ok) {
-      throw new Error('Error al actualizar producto');
+  const updateProduct = async (id: string, data: UpdateProductDto): Promise<ProductDto> => {
+    try {
+      const product = await productApi.update(Number(id), data);
+      await fetchProducts(); // Recargar lista
+      return product;
+    } catch (err) {
+      console.error('Error al actualizar producto:', err);
+      throw err;
     }
-
-    return response.json();
   };
 
   const deleteProduct = async (id: string): Promise<void> => {
-    const response = await fetch(`http://localhost:3000/products/${id}`, {
-      method: 'DELETE',
-    });
-
-    if (!response.ok) {
-      throw new Error('Error al eliminar producto');
+    try {
+      await productApi.delete(Number(id));
+      await fetchProducts(); // Recargar lista
+    } catch (err) {
+      console.error('Error al eliminar producto:', err);
+      throw err;
     }
   };
 

@@ -3,7 +3,7 @@ export interface CreatePresentationDto {
   productId: string;
   name: string;
   quantity: number;
-  barcode: string;
+  barcode: string | null ;
   costPrice: number;
   lastCostPrice?: number;
   averageCostPrice?: number;

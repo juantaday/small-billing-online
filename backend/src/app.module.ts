@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { APP_FILTER } from '@nestjs/core';
 import { PeopleModule } from './people/people.module';
 import { AuthModule } from './auth/auth.module';
 import { CategoryModule } from './category/category.module';
@@ -8,9 +9,13 @@ import { CustomerCategoryModule } from './customer-category/customer-category.mo
 import { CustomerModule } from './customer/customer.module';
 import { PaymentMethodModule } from './payment-method/payment-method.module';
 import { RewardModule } from './reward/reward.module';
+import { LoggerModule } from './common/logger/logger.module';
+import { AllExceptionsFilter } from './common/filters/http-exception.filter';
+import { LoggerService } from './common/logger/logger.service';
 
 @Module({
   imports: [
+    LoggerModule,
     PeopleModule,
     AuthModule,
     CategoryModule,
@@ -20,6 +25,12 @@ import { RewardModule } from './reward/reward.module';
     CustomerModule,
     PaymentMethodModule,
     RewardModule,
+  ],
+  providers: [
+    {
+      provide: APP_FILTER,
+      useClass: AllExceptionsFilter,
+    },
   ],
 })
 export class AppModule {}

@@ -6,11 +6,14 @@ import {
   UpdatePresentationDto,
   UpdateStockDto,
 } from '@small-billing/shared';
+import { LoggerService } from '../common/logger/logger.service';
 
 const prisma = new PrismaClient();
 
 @Injectable()
 export class PresentationService {
+  constructor(private readonly logger: LoggerService) {}
+
   async findByProduct(productId: string): Promise<PresentationDto[]> {
     const presentations = await prisma.presentation.findMany({
       where: { productId, active: true },
@@ -85,9 +88,14 @@ export class PresentationService {
   }
 
   async create(data: CreatePresentationDto): Promise<PresentationDto> {
+    this.logger.log(`Creando presentación: ${data.name} - ${data.barcode || 'sin código'}`, 'PresentationService');
+    
     const presentation = await prisma.presentation.create({
       data,
     });
+
+    this.logger.log(`Presentación creada exitosamente: ${presentation.id}`, 'PresentationService');
+    this.logger.logDatabaseOperation('CREATE', 'Presentation', { name: data.name, barcode: data.barcode });
 
     return {
       id: presentation.id,
@@ -108,10 +116,15 @@ export class PresentationService {
   }
 
   async update(id: string, data: UpdatePresentationDto): Promise<PresentationDto> {
+    this.logger.log(`Actualizando presentación: ${id}`, 'PresentationService');
+    
     const presentation = await prisma.presentation.update({
       where: { id },
       data,
     });
+
+    this.logger.log(`Presentación actualizada exitosamente: ${id}`, 'PresentationService');
+    this.logger.logDatabaseOperation('UPDATE', 'Presentation', { id, ...data });
 
     return {
       id: presentation.id,
@@ -132,17 +145,21 @@ export class PresentationService {
   }
 
   async updateStock(data: UpdateStockDto): Promise<PresentationDto> {
+    this.logger.log(`Actualizando stock de presentación: ${data.id} - Cantidad: ${data.quantity}`, 'PresentationService');
+    
     const presentation = await prisma.presentation.findUnique({
       where: { id: data.id },
     });
 
     if (!presentation) {
+      this.logger.warn(`Presentación no encontrada: ${data.id}`, 'PresentationService');
       throw new Error('Presentation not found');
     }
 
     const newStock = presentation.stock + data.quantity;
 
     if (newStock < 0) {
+      this.logger.warn(`Stock insuficiente para presentación: ${data.id} - Stock actual: ${presentation.stock} - Solicitado: ${data.quantity}`, 'PresentationService');
       throw new Error('Insufficient stock');
     }
 

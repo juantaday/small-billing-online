@@ -6,12 +6,13 @@ import {
   UpdateCustomerDto,
   CustomerWithRelationsDto,
 } from '@small-billing/shared';
+import { LoggerService } from '../common/logger/logger.service';
 
 const prisma = new PrismaClient();
 
 @Injectable()
 export class CustomerService {
-
+  constructor(private readonly logger: LoggerService) {}
 
   async findAll(): Promise<CustomerWithRelationsDto[]> {
     const customers = await prisma.customer.findMany({
@@ -99,6 +100,8 @@ export class CustomerService {
   }
 
   async create(data: CreateCustomerDto): Promise<CustomerDto> {
+    this.logger.log(`Creando cliente: ${data.people.firstName} ${data.people.lastName || ''}`, 'CustomerService');
+    
     // 1. Buscar si ya existe un People con el rucCi o mainEmail
     let existingPeople = null;
     
@@ -223,6 +226,9 @@ export class CustomerService {
       },
     });
 
+    this.logger.log(`Cliente creado exitosamente: ${customer.id}`, 'CustomerService');
+    this.logger.logDatabaseOperation('CREATE', 'Customer', { peopleId, customerCategoryId: data.customerCategoryId });
+
     return {
       id: customer.id,
       peopleId: customer.peopleId,
@@ -237,6 +243,7 @@ export class CustomerService {
   }
 
   async update(id: string, data: UpdateCustomerDto): Promise<CustomerDto> {
+    this.logger.log(`Actualizando cliente: ${id}`, 'CustomerService');
     // Primero obtener el customer para acceder al peopleId
     const existingCustomer = await prisma.customer.findUnique({
       where: { id },
@@ -273,6 +280,9 @@ export class CustomerService {
       where: { id },
       data: customerData,
     });
+
+    this.logger.log(`Cliente actualizado exitosamente: ${id}`, 'CustomerService');
+    this.logger.logDatabaseOperation('UPDATE', 'Customer', { id, ...customerData });
 
     return {
       id: customer.id,

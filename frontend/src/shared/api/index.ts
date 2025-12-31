@@ -3,7 +3,7 @@
  * Exportación centralizada del cliente HTTP y configuración
  */
 
-export { BaseApiClient } from './base-client';
+export { BaseApiClient, ApiError } from './base-client';
 
 // Instancia única del cliente para casos que lo necesiten
 import { BaseApiClient } from './base-client';

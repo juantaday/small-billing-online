@@ -6,11 +6,13 @@
 import { useState } from 'react';
 import { Plus, Search, Edit, Trash2, Package, DollarSign, AlertTriangle } from 'lucide-react';
 import { Button, Card, SpinnerLoading } from '@/shared/ui';
-import { ProductWizard, ProductFormData } from '@/features/product-management';
 import { useProducts } from '@/entities/product/api/useProducts';
 import { usePresentations } from '@/entities/product/api/usePresentations';
 import { useCategories } from '@/entities/category/api/useCategories';
 import clsx from 'clsx';
+import { ProductFormData } from '@/features/product-management/ui/types';
+import { ProductWizard } from '@/features/product-management/ui/ProductWizard';
+
 
 export function ProductManagementPage() {
   const [isWizardOpen, setIsWizardOpen] = useState(false);
@@ -59,7 +61,7 @@ export function ProductManagementPage() {
   // Guardar producto desde wizard
   const handleSaveProduct = async (data: ProductFormData): Promise<{ id: string }> => {
     try {
-      // 1. Crear o actualizar producto
+      // 1. Crear o actualizar producto (solo info básica en paso 1)
       const productData = {
         name: data.name,
         slug: data.slug,
@@ -71,37 +73,43 @@ export function ProductManagementPage() {
 
       let productId: string;
 
-      if (selectedProduct) {
+      if (data.productId) {
+        // Ya existe el producto, solo retornar el ID
+        productId = data.productId;
+      } else if (selectedProduct) {
         // Actualizar
-        const updatedProduct = await updateProduct(selectedProduct.id, productData);
+        const updatedProduct = await updateProduct(selectedProduct.id, {
+          id: selectedProduct.id,
+          ...productData,
+        });
         productId = updatedProduct.id;
       } else {
-        // Crear
+        // Crear nuevo producto
         const newProduct = await createProduct(productData);
         productId = newProduct.id;
       }
 
-      // 2. Crear presentaciones
-      for (const presentation of data.presentations) {
-        await createPresentation({
-          productId,
-          name: presentation.name,
-          quantity: presentation.quantity,
-          barcode: presentation.barcode,
-          costPrice: presentation.costPrice,
-          salePrice: presentation.salePrice,
-          stock: presentation.stock,
-          minStock: presentation.minStock,
-          maxStock: presentation.maxStock,
-          active: true,
-        });
+      // 2. Crear presentaciones (solo si hay presentaciones en el form)
+      if (data.presentations && data.presentations.length > 0) {
+        for (const presentation of data.presentations) {
+          console.log('Creating presentation for product:', productId, presentation);
+          await createPresentation({
+            productId,
+            name: presentation.name,
+            quantity: presentation.quantity,
+            barcode: presentation.barcode,
+            costPrice: presentation.costPrice,
+            salePrice: presentation.salePrice,
+            stock: presentation.stock,
+            minStock: presentation.minStock,
+            maxStock: presentation.maxStock,
+            active: true,
+          });
+        }
       }
 
       // TODO: Guardar configuraciones de impuestos y presentaciones por defecto
       // Esto requeriría agregar campos al schema
-
-      alert('Producto guardado correctamente');
-      window.location.reload(); // Recargar para ver los cambios
       
       return { id: productId };
     } catch (error) {
@@ -113,12 +121,12 @@ export function ProductManagementPage() {
   // Calcular precio de venta principal (de la primera presentación activa)
   const getMainPrice = (product: any): number => {
     const mainPresentation = product.presentations?.find((p: any) => p.active);
-    return mainPresentation?.salePrice || 0;
+    return Number(mainPresentation?.salePrice) || 0;
   };
 
   // Obtener stock total
   const getTotalStock = (product: any): number => {
-    return product.presentations?.reduce((total: number, p: any) => total + (p.stock || 0), 0) || 0;
+    return product.presentations?.reduce((total: number, p: any) => total + Number(p.stock || 0), 0) || 0;
   };
 
   return (

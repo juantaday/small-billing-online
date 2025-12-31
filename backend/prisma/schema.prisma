@@ -264,9 +264,11 @@ model Presentation {
   productId String  @map("product_id")
   product   Product @relation("ProductPresentations", fields: [productId], references: [id], onDelete: Cascade)
 
-  name     String @db.VarChar(100) // "Unidad", "x6", "Docena"
+  name     String  @db.VarChar(100) // "Unidad", "x6", "Docena"
   quantity Int // Cantidad de unidades en esta presentación
-  barcode  String @unique @db.VarChar(50)
+  barcode  String? @db.VarChar(50) // Nullable porque no todos los productos tienen código de barras
+
+  @@unique([barcode]) // Solo si tiene valor debe ser único
 
   // Precios
   costPrice        Decimal  @map("cost_price") @db.Decimal(10, 2)

@@ -3,21 +3,28 @@ import { JwtService } from '@nestjs/jwt';
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { CreateUserDto, LoginDto, UserDto } from '@small-billing/shared';
+import { LoggerService } from '../common/logger/logger.service';
 
 const prisma = new PrismaClient();
 
 @Injectable()
 export class AuthService {
-  constructor(private jwtService: JwtService) {}
+  constructor(
+    private jwtService: JwtService,
+    private readonly logger: LoggerService,
+  ) {}
 
   // Registrar usuario
   async register(data: CreateUserDto): Promise<{ user: UserDto; tokens: { accessToken: string; refreshToken: string } }> {
+    this.logger.log(`Intento de registro: ${data.email}`, 'AuthService');
+    
     // Verificar si el email ya existe
     const existingUser = await prisma.user.findUnique({
       where: { email: data.email },
     });
 
     if (existingUser) {
+      this.logger.warn(`Email ya registrado: ${data.email}`, 'AuthService');
       throw new ConflictException('El email ya está registrado');
     }
 
@@ -53,6 +60,9 @@ export class AuthService {
     // Guardar refresh token
     await this.updateRefreshToken(user.id, tokens.refreshToken);
 
+    this.logger.logAuthEvent('REGISTER', user.id, user.email, true);
+    this.logger.log(`Usuario registrado exitosamente: ${user.email}`, 'AuthService');
+
     // Eliminar password de la respuesta
     const { password, refreshToken, ...userWithoutSensitiveData } = user;
 
@@ -64,11 +74,14 @@ export class AuthService {
 
   // Login
   async login(data: LoginDto): Promise<{ user: UserDto; tokens: { accessToken: string; refreshToken: string } }> {
+    this.logger.log(`Intento de login: ${data.email}`, 'AuthService');
+    
     const user = await prisma.user.findUnique({
       where: { email: data.email },
     });
 
     if (!user) {
+      this.logger.logAuthEvent('LOGIN', undefined, data.email, false, 'Usuario no encontrado');
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
@@ -76,11 +89,13 @@ export class AuthService {
     const isPasswordValid = await bcrypt.compare(data.password, user.password);
 
     if (!isPasswordValid) {
+      this.logger.logAuthEvent('LOGIN', user.id, user.email, false, 'Contraseña incorrecta');
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
     // Verificar si está activo
     if (!user.active) {
+      this.logger.logAuthEvent('LOGIN', user.id, user.email, false, 'Usuario inactivo');
       throw new UnauthorizedException('Usuario inactivo');
     }
 
@@ -89,6 +104,9 @@ export class AuthService {
 
     // Guardar refresh token
     await this.updateRefreshToken(user.id, tokens.refreshToken);
+
+    this.logger.logAuthEvent('LOGIN', user.id, user.email, true);
+    this.logger.log(`Login exitoso: ${user.email}`, 'AuthService');
 
     const { password, refreshToken, ...userWithoutSensitiveData } = user;
 
@@ -126,10 +144,12 @@ export class AuthService {
 
   // Logout
   async logout(userId: string): Promise<void> {
+    this.logger.log(`Logout usuario: ${userId}`, 'AuthService');
     await prisma.user.update({
       where: { id: userId },
       data: { refreshToken: null },
     });
+    this.logger.logAuthEvent('LOGOUT', userId, undefined, true);
   }
 
   // Generar tokens

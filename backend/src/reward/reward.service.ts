@@ -6,11 +6,14 @@ import {
   UpdateRewardDto,
   RewardWithRelationsDto,
 } from '@small-billing/shared';
+import { LoggerService } from '../common/logger/logger.service';
 
 const prisma = new PrismaClient();
 
 @Injectable()
 export class RewardService {
+  constructor(private readonly logger: LoggerService) {}
+
   async findAll(): Promise<RewardWithRelationsDto[]> {
     const rewards = await prisma.reward.findMany({
       where: { active: true },

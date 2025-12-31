@@ -119,7 +119,7 @@ export function ProductList({ onAddToCart }: ProductListProps) {
                 
                 <div className="flex items-center justify-between">
                   <span className="text-2xl font-bold text-red-600 dark:text-red-400">
-                    ${mainPresentation?.salePrice?.toFixed(2) || '0.00'}
+                    ${Number(mainPresentation?.salePrice || 0).toFixed(2)}
                   </span>
                   <button
                     disabled={!product.active}

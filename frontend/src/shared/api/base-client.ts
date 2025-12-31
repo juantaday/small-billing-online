@@ -7,6 +7,17 @@ interface RequestOptions extends RequestInit {
   params?: Record<string, string | number>;
 }
 
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+    public response?: any
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
 export class BaseApiClient {
   constructor(private readonly baseURL: string) {}
 
@@ -24,11 +35,15 @@ export class BaseApiClient {
 
   private async handleResponse<T>(response: Response): Promise<T> {
     if (!response.ok) {
-      const error = await response.json().catch(() => ({
+      const errorData = await response.json().catch(() => ({
         message: response.statusText
       }));
       
-      throw new Error(error.message || `HTTP Error: ${response.status}`);
+      throw new ApiError(
+        errorData.message || `HTTP Error: ${response.status}`,
+        response.status,
+        errorData
+      );
     }
 
     if (response.status === 204) {

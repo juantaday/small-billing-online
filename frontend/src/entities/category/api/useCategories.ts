@@ -4,23 +4,11 @@
  */
 
 import { useState, useEffect } from 'react';
-
-interface Category {
-  id: string;
-  name: string;
-  icon?: string;
-  color?: string;
-  displayOrder: number;
-  active: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-  _count?: {
-    products: number;
-  };
-}
+import { categoryApi } from './category-api';
+import { CategoryDto } from '@small-billing/shared';
 
 export function useCategories() {
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<CategoryDto[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,13 +16,11 @@ export function useCategories() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('http://localhost:3000/categories');
-      if (!response.ok) throw new Error('Error al cargar categorías');
-      
-      const data = await response.json();
+      const data = await categoryApi.getAll();
       setCategories(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido');
+      console.error('Error al cargar categorías:', err);
     } finally {
       setLoading(false);
     }

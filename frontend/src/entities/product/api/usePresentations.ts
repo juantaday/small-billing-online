@@ -4,40 +4,11 @@
  */
 
 import { useState } from 'react';
-
-interface Presentation {
-  id: string;
-  productId: string;
-  name: string;
-  quantity: number;
-  barcode: string;
-  costPrice: number;
-  lastCostPrice?: number;
-  averageCostPrice?: number;
-  salePrice: number;
-  stock: number;
-  minStock?: number;
-  maxStock?: number;
-  active: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-interface CreatePresentationRequest {
-  productId: string;
-  name: string;
-  quantity: number;
-  barcode: string;
-  costPrice: number;
-  salePrice: number;
-  stock?: number;
-  minStock?: number;
-  maxStock?: number;
-  active?: boolean;
-}
+import { presentationApi } from './presentation-api';
+import { PresentationDto, CreatePresentationDto, UpdatePresentationDto } from '@small-billing/shared';
 
 export function usePresentations() {
-  const [presentations, setPresentations] = useState<Presentation[]>([]);
+  const [presentations, setPresentations] = useState<PresentationDto[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,56 +16,46 @@ export function usePresentations() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`http://localhost:3000/presentations?productId=${productId}`);
-      if (!response.ok) throw new Error('Error al cargar presentaciones');
-      
-      const data = await response.json();
+      const data = await presentationApi.getByProductId(productId);
       setPresentations(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido');
+      console.error('Error al cargar presentaciones:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const createPresentation = async (data: CreatePresentationRequest): Promise<Presentation> => {
-    const response = await fetch('http://localhost:3000/presentations', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-
-    if (!response.ok) {
-      throw new Error('Error al crear presentación');
+  const createPresentation = async (data: CreatePresentationDto): Promise<PresentationDto> => {
+    try {
+      const presentation = await presentationApi.create(data);
+      // Opcionalmente recargar presentaciones si es necesario
+      return presentation;
+    } catch (err) {
+      console.error('Error al crear presentación:', err);
+      throw err;
     }
-
-    return response.json();
   };
 
   const updatePresentation = async (
     id: string,
-    data: Partial<CreatePresentationRequest>
-  ): Promise<Presentation> => {
-    const response = await fetch(`http://localhost:3000/presentations/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-
-    if (!response.ok) {
-      throw new Error('Error al actualizar presentación');
+    data: UpdatePresentationDto
+  ): Promise<PresentationDto> => {
+    try {
+      const presentation = await presentationApi.update(Number(id), data);
+      return presentation;
+    } catch (err) {
+      console.error('Error al actualizar presentación:', err);
+      throw err;
     }
-
-    return response.json();
   };
 
   const deletePresentation = async (id: string): Promise<void> => {
-    const response = await fetch(`http://localhost:3000/presentations/${id}`, {
-      method: 'DELETE',
-    });
-
-    if (!response.ok) {
-      throw new Error('Error al eliminar presentación');
+    try {
+      await presentationApi.delete(Number(id));
+    } catch (err) {
+      console.error('Error al eliminar presentación:', err);
+      throw err;
     }
   };
 
