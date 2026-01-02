@@ -127,7 +127,7 @@ export function ProductWizard({
     setIsSubmitting(true);
     try {
       await onSave(formData);
-      alert('Producto guardado correctamente');
+
       window.location.reload();
       onClose();
     } catch (error) {

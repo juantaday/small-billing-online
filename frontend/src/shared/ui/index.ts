@@ -15,3 +15,5 @@ export { ConfirmDialog } from './confirm-dialog';
 export type { ConfirmDialogVariant } from './confirm-dialog';
 export { Toast, ToastContainer, useToast } from './toast';
 export type { ToastType, ToastProps } from './toast';
+export { ImageUpload } from './ImageUpload';
+export { Modal } from './Modal';

@@ -4,7 +4,7 @@
  */
 
 import { useState } from 'react';
-import { Plus, Search, Edit, Trash2, Package, DollarSign, AlertTriangle } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Package, DollarSign, AlertTriangle, Image } from 'lucide-react';
 import { Button, Card, ConfirmDialog, SpinnerLoading } from '@/shared/ui';
 import { useToastContext } from '@/app/providers/toast';
 import { useProducts } from '@/entities/product/api/useProducts';
@@ -13,6 +13,7 @@ import { useCategories } from '@/entities/category/api/useCategories';
 import clsx from 'clsx';
 import { ProductFormData } from '@/features/product-management/ui/types';
 import { ProductWizard } from '@/features/product-management/ui/ProductWizard';
+import { ProductImageManager } from '@/features/product-management/ui/ProductImageManager';
 
 
 export function ProductManagementPage() {
@@ -23,6 +24,10 @@ export function ProductManagementPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<{ id: string; name: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  // Estado para el modal de imágenes
+  const [isImageManagerOpen, setIsImageManagerOpen] = useState(false);
+  const [selectedProductForImages, setSelectedProductForImages] = useState<{ id: string; name: string } | null>(null);
 
   const toast = useToastContext();
   const { products, loading, createProduct, updateProduct, deleteProduct } = useProducts();
@@ -49,6 +54,12 @@ export function ProductManagementPage() {
   const handleEdit = (product: any) => {
     setSelectedProduct(product);
     setIsWizardOpen(true);
+  };
+
+  // Abrir gestor de imágenes
+  const handleManageImages = (product: any) => {
+    setSelectedProductForImages({ id: product.id, name: product.name });
+    setIsImageManagerOpen(true);
   };
 
   // Abrir modal de confirmación para eliminar
@@ -346,6 +357,13 @@ export function ProductManagementPage() {
                             <Edit className="w-4 h-4" />
                           </button>
                           <button
+                            onClick={() => handleManageImages(product)}
+                            className="text-purple-600 hover:text-purple-900 dark:text-purple-400 dark:hover:text-purple-300 p-1"
+                            title="Gestionar Imágenes"
+                          >
+                            <Image className="w-4 h-4" />
+                          </button>
+                          <button
                             onClick={() => handleDeleteClick(product)}
                             className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 p-1"
                             title="Eliminar"
@@ -433,6 +451,19 @@ export function ProductManagementPage() {
         initialData={selectedProduct}
         mode={selectedProduct ? 'edit' : 'create'}
       />
+
+      {/* Gestor de Imágenes */}
+      {selectedProductForImages && (
+        <ProductImageManager
+          isOpen={isImageManagerOpen}
+          onClose={() => {
+            setIsImageManagerOpen(false);
+            setSelectedProductForImages(null);
+          }}
+          productId={selectedProductForImages.id}
+          productName={selectedProductForImages.name}
+        />
+      )}
 
       {/* Modal de confirmación para eliminar */}
       <ConfirmDialog

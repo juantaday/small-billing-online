@@ -214,6 +214,8 @@ model Category {
   @@map("categories")
 }
 
+// ==================== PRODUCTS CATEGORY ====================
+
 model Product {
   id         String   @id @default(cuid())
   categoryId String   @map("category_id")
@@ -244,6 +246,8 @@ model Product {
   @@map("products")
 }
 
+// ==================== PRODUCTS IMAGE ===================
+
 model ProductImage {
   id        String  @id @default(cuid())
   productId String  @map("product_id")
@@ -258,6 +262,7 @@ model ProductImage {
 
   @@map("product_images")
 }
+
 
 model Presentation {
   id        String  @id @default(cuid())

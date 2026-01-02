@@ -2,9 +2,11 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { LoggerService } from './common/logger/logger.service';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { join } from 'path';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bufferLogs: true,
   });
 
@@ -16,6 +18,11 @@ async function bootstrap() {
   
   // Aplicar interceptor de logging globalmente
   app.useGlobalInterceptors(new LoggingInterceptor(logger));
+  
+  // Servir archivos estáticos desde /public
+  app.useStaticAssets(join(__dirname, '..', 'public'), {
+    prefix: '/',
+  });
   
   // CORS para frontend
   app.enableCors({
