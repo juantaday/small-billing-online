@@ -29,3 +29,6 @@ export const ROUTES = {
   LOGIN: '/login',
   REGISTER: '/register',
 } as const;
+
+// Re-export theme configuration
+export { theme, colors, gradients, ui, buttonVariants, badgeVariants, transitions, shadows, cn } from './theme.config';

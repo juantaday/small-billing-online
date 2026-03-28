@@ -213,7 +213,7 @@ export function ProductManagementPage() {
               className={clsx(
                 'px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-all',
                 selectedCategoryFilter === 'all'
-                  ? 'bg-red-600 text-white'
+                  ? 'bg-primary-600 text-white'
                   : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
               )}
             >
@@ -226,7 +226,7 @@ export function ProductManagementPage() {
                 className={clsx(
                   'px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-all',
                   selectedCategoryFilter === category.id
-                    ? 'bg-red-600 text-white'
+                    ? 'bg-primary-600 text-white'
                     : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
                 )}
               >
@@ -324,14 +324,14 @@ export function ProductManagementPage() {
                             className={clsx(
                               'text-sm font-medium',
                               hasLowStock
-                                ? 'text-red-600 dark:text-red-400'
+                                ? 'text-primary-600 dark:text-primary-400'
                                 : 'text-gray-900 dark:text-white'
                             )}
                           >
                             {totalStock}
                           </span>
                           {hasLowStock && (
-                            <AlertTriangle className="w-4 h-4 ml-1 text-red-600" />
+                            <AlertTriangle className="w-4 h-4 ml-1 text-danger-600" />
                           )}
                         </div>
                       </td>
@@ -340,7 +340,7 @@ export function ProductManagementPage() {
                           className={clsx(
                             'px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full',
                             product.active
-                              ? 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-400'
+                              ? 'badge-success'
                               : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-400'
                           )}
                         >
@@ -351,21 +351,21 @@ export function ProductManagementPage() {
                         <div className="flex items-center justify-end space-x-2">
                           <button
                             onClick={() => handleEdit(product)}
-                            className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 p-1"
+                            className="text-info-600 hover:text-info-900 dark:text-info-400 dark:hover:text-info-300 p-1"
                             title="Editar"
                           >
                             <Edit className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleManageImages(product)}
-                            className="text-purple-600 hover:text-purple-900 dark:text-purple-400 dark:hover:text-purple-300 p-1"
+                            className="text-accent-600 hover:text-accent-900 dark:text-accent-400 dark:hover:text-accent-300 p-1"
                             title="Gestionar Imágenes"
                           >
                             <Image className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleDeleteClick(product)}
-                            className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 p-1"
+                            className="text-danger-600 hover:text-danger-900 dark:text-danger-400 dark:hover:text-danger-300 p-1"
                             title="Eliminar"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -405,7 +405,7 @@ export function ProductManagementPage() {
                   {products.length}
                 </p>
               </div>
-              <Package className="w-10 h-10 text-red-500" />
+              <Package className="w-10 h-10 text-danger-500" />
             </div>
           </div>
         </Card>
@@ -419,7 +419,7 @@ export function ProductManagementPage() {
                   {products.filter((p) => p.active).length}
                 </p>
               </div>
-              <div className="w-10 h-10 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center">
+              <div className="w-10 h-10 badge-success rounded-full flex items-center justify-center">
                 <span className="text-2xl">✓</span>
               </div>
             </div>
@@ -435,7 +435,7 @@ export function ProductManagementPage() {
                   {products.filter((p) => p.featured).length}
                 </p>
               </div>
-              <div className="w-10 h-10 bg-yellow-100 dark:bg-yellow-900/20 rounded-full flex items-center justify-center">
+              <div className="w-10 h-10 badge-warning rounded-full flex items-center justify-center">
                 <span className="text-2xl">⭐</span>
               </div>
             </div>

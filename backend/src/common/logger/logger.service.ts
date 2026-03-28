@@ -214,4 +214,24 @@ export class LoggerService implements NestLoggerService {
       this.warn(logEntry, 'Auth');
     }
   }
+
+  /**
+   * Método INFO - escribe en archivo para debug de operaciones importantes
+   */
+  info(message: any, context?: string) {
+    const timestamp = new Date().toISOString();
+    console.info(`[${timestamp}] [INFO] ${context || ''}: ${typeof message === 'object' ? JSON.stringify(message) : message}`);
+    // Escribir en archivo para poder testear
+    this.writeToFile('INFO', message, context);
+  }
+
+  /**
+   * Método ALERT - para eventos críticos que necesitan atención inmediata
+   */
+  alert(message: any, context?: string) {
+    const timestamp = new Date().toISOString();
+    console.error(`[${timestamp}] [🚨 ALERT] ${context || ''}: ${typeof message === 'object' ? JSON.stringify(message) : message}`);
+    this.writeToFile('ALERT', message, context);
+  }
+  
 }

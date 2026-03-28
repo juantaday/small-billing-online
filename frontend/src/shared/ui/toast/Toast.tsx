@@ -26,24 +26,24 @@ const ICONS = {
 };
 
 const STYLES = {
-  success: 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800',
-  error: 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800',
-  warning: 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800',
-  info: 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',
+  success: 'bg-success-50 dark:bg-success-900/20 border-success-200 dark:border-success-800',
+  error: 'bg-danger-50 dark:bg-danger-900/20 border-danger-200 dark:border-danger-800',
+  warning: 'bg-warning-50 dark:bg-warning-900/20 border-warning-200 dark:border-warning-800',
+  info: 'bg-info-50 dark:bg-info-900/20 border-info-200 dark:border-info-800',
 };
 
 const ICON_STYLES = {
-  success: 'text-green-600 dark:text-green-400',
-  error: 'text-red-600 dark:text-red-400',
-  warning: 'text-yellow-600 dark:text-yellow-400',
-  info: 'text-blue-600 dark:text-blue-400',
+  success: 'text-success-600 dark:text-success-400',
+  error: 'text-danger-600 dark:text-danger-400',
+  warning: 'text-warning-600 dark:text-warning-400',
+  info: 'text-info-600 dark:text-info-400',
 };
 
 const TEXT_STYLES = {
-  success: 'text-green-900 dark:text-green-100',
-  error: 'text-red-900 dark:text-red-100',
-  warning: 'text-yellow-900 dark:text-yellow-100',
-  info: 'text-blue-900 dark:text-blue-100',
+  success: 'text-success-900 dark:text-success-100',
+  error: 'text-danger-900 dark:text-danger-100',
+  warning: 'text-warning-900 dark:text-warning-100',
+  info: 'text-info-900 dark:text-info-100',
 };
 
 export function Toast({ id, type, title, message, duration = 5000, onClose }: ToastProps) {

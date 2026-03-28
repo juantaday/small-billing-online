@@ -63,7 +63,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         {/* Logo y botón de cierre */}
         <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-red-600 to-orange-600 rounded-xl flex items-center justify-center shadow-lg">
+            <div className="w-10 h-10 bg-gradient-brand rounded-xl flex items-center justify-center shadow-lg">
               <ShoppingCartIcon className="w-6 h-6 text-white" />
             </div>
             <div className="flex flex-col">
@@ -97,8 +97,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                   'flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors',
                   'font-medium text-sm',
                   isActive
-                    ? 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                    ? 'badge-primary'
+                    : 'text-gray-700 dark:text-gray-300 interactive-hover'
                 )}
                 onClick={() => {
                   if (window.innerWidth < 1024) {
@@ -115,10 +115,10 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
         {/* Footer del sidebar */}
         <div className="p-4 border-t border-gray-200 dark:border-gray-700">
-          <div className="bg-gradient-to-r from-red-600 to-orange-600 rounded-lg p-4 text-white">
+          <div className="bg-gradient-brand-horizontal rounded-lg p-4 text-white">
             <h3 className="font-semibold text-sm mb-1">¿Necesitas ayuda?</h3>
             <p className="text-xs opacity-90 mb-2">Contacta a soporte técnico</p>
-            <button className="w-full bg-white text-red-600 text-xs font-medium py-2 rounded-lg hover:bg-gray-100 transition-colors">
+            <button className="w-full bg-white text-primary-600 text-xs font-medium py-2 rounded-lg interactive-hover transition-colors">
               Contactar
             </button>
           </div>

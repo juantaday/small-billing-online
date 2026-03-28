@@ -22,9 +22,22 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const root = document.documentElement;
+    
+    // Agregar clase temporal para deshabilitar transiciones durante el cambio
+    root.classList.add('changing-theme');
+    
+    // Cambiar el tema
     root.classList.remove('light', 'dark');
     root.classList.add(theme);
     localStorage.setItem('theme', theme);
+    
+    // Remover la clase después de que el cambio se complete
+    // Usar setTimeout para asegurar que el navegador aplique los cambios
+    const timeoutId = setTimeout(() => {
+      root.classList.remove('changing-theme');
+    }, 50); // 50ms es suficiente para que se apliquen los estilos
+    
+    return () => clearTimeout(timeoutId);
   }, [theme]);
 
   const toggleTheme = () => {

@@ -4,6 +4,7 @@
  */
 
 import clsx, { ClassValue } from 'clsx';
+import { API_CONFIG } from '@/shared/config';
 
 /**
  * Combina clases CSS de manera segura
@@ -57,4 +58,27 @@ export function debounce<T extends (...args: any[]) => any>(
     clearTimeout(timeout);
     timeout = setTimeout(later, wait);
   };
+}
+
+/**
+ * Normaliza URLs de imágenes para soportar rutas relativas y migraciones de host.
+ */
+export function resolveImageUrl(imageUrl?: string): string {
+  const fallback = 'https://via.placeholder.com/400x300?text=No+Image';
+  if (!imageUrl) return fallback;
+
+  // Evita pedir imágenes locales legacy que suelen no existir en producción.
+  if (
+    imageUrl.includes('/uploads/products/') ||
+    imageUrl.startsWith('http://localhost:3000/uploads/') ||
+    imageUrl.startsWith('http://localhost:3001/uploads/')
+  ) {
+    return fallback;
+  }
+
+  if (imageUrl.startsWith('/')) {
+    return `${API_CONFIG.BASE_URL}${imageUrl}`;
+  }
+
+  return imageUrl;
 }

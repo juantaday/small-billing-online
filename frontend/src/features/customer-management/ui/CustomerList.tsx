@@ -151,7 +151,7 @@ export function CustomerList({
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-400">
+                        <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full badge-info">
                           {customer.customerCategoryId ? `Cat. ${customer.customerCategoryId}` : 'Sin categoría'}
                         </span>
                       </td>
@@ -160,7 +160,7 @@ export function CustomerList({
                           {onEdit && (
                             <button
                               onClick={() => onEdit(customer)}
-                              className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 p-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                              className="text-info-600 hover:text-info-900 dark:text-info-400 dark:hover:text-info-300 p-2 hover:bg-info-50 dark:hover:bg-info-900/20 rounded-lg transition-colors"
                             >
                               <Edit className="w-4 h-4" />
                             </button>

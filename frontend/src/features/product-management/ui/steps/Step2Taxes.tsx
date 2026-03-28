@@ -76,7 +76,7 @@ export function Step2Taxes({ data, onUpdate }: Step2Props) {
               className={clsx(
                 'flex items-center space-x-3 p-4 rounded-lg border-2 cursor-pointer transition-all',
                 isTaxSelected(tax.code)
-                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                  ? 'border-info-500 bg-info-50 dark:bg-info-900/20'
                   : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
               )}
             >
@@ -89,7 +89,7 @@ export function Step2Taxes({ data, onUpdate }: Step2Props) {
                   onUpdate('selectedTaxes', withoutIVA);
                   toggleTax(tax.code);
                 }}
-                className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                className="w-4 h-4 text-info-600 border-gray-300 focus:ring-info-500"
               />
               <div className="flex-1">
                 <p className="font-medium text-gray-900 dark:text-white">
@@ -121,7 +121,7 @@ export function Step2Taxes({ data, onUpdate }: Step2Props) {
                 className={clsx(
                   'flex items-center space-x-3 p-4 rounded-lg border-2 cursor-pointer transition-all',
                   isTaxSelected(tax.code)
-                    ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
+                    ? 'border-accent-500 bg-accent-50 dark:bg-accent-900/20'
                     : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                 )}
               >
@@ -129,7 +129,7 @@ export function Step2Taxes({ data, onUpdate }: Step2Props) {
                   type="checkbox"
                   checked={isTaxSelected(tax.code)}
                   onChange={() => toggleTax(tax.code)}
-                  className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                  className="w-4 h-4 text-accent-600 border-gray-300 rounded focus:ring-accent-500"
                 />
                 <div className="flex-1">
                   <p className="font-medium text-gray-900 dark:text-white">
@@ -162,7 +162,7 @@ export function Step2Taxes({ data, onUpdate }: Step2Props) {
                 className={clsx(
                   'flex items-center space-x-3 p-4 rounded-lg border-2 cursor-pointer transition-all',
                   isTaxSelected(tax.code)
-                    ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
+                    ? 'border-success-500 bg-success-50 dark:bg-success-900/20'
                     : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                 )}
               >
@@ -170,7 +170,7 @@ export function Step2Taxes({ data, onUpdate }: Step2Props) {
                   type="checkbox"
                   checked={isTaxSelected(tax.code)}
                   onChange={() => toggleTax(tax.code)}
-                  className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                  className="w-4 h-4 text-success-600 border-gray-300 rounded focus:ring-success-500"
                 />
                 <div className="flex-1">
                   <p className="font-medium text-gray-900 dark:text-white">
@@ -205,8 +205,8 @@ export function Step2Taxes({ data, onUpdate }: Step2Props) {
 
       {/* Advertencia */}
       {!data.selectedTaxes.some(t => t.taxValueDescription.includes('IVA')) && (
-        <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg border border-yellow-200 dark:border-yellow-800">
-          <p className="text-sm text-yellow-800 dark:text-yellow-400">
+        <div className="badge-warning p-4 rounded-lg border">
+          <p className="text-sm text-warning-800 dark:text-warning-400">
             ⚠️ <strong>Importante:</strong> Debes seleccionar una opción de IVA para cumplir con 
             los requisitos del SRI para facturación electrónica.
           </p>

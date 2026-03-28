@@ -27,10 +27,10 @@ export function Button({
         'rounded-lg font-medium transition-all duration-200 inline-flex items-center justify-center',
         'disabled:opacity-50 disabled:cursor-not-allowed',
         // Variants
-        variant === 'primary' && 'bg-red-600 hover:bg-red-700 text-white',
+        variant === 'primary' && 'bg-primary-600 hover:bg-primary-700 text-white',
         variant === 'secondary' && 'bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white',
-        variant === 'ghost' && 'bg-transparent hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300',
-        variant === 'danger' && 'bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-900 dark:hover:bg-red-800 dark:text-red-100',
+        variant === 'ghost' && 'bg-transparent interactive-hover text-gray-700 dark:text-gray-300',
+        variant === 'danger' && 'badge-danger hover:bg-danger-200',
         variant === 'outline' && 'border-2 border-gray-300 dark:border-gray-600 bg-transparent hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300',
         // Sizes
         size === 'sm' && 'px-3 py-1.5 text-sm',

@@ -7,28 +7,28 @@ const stats = [
     value: '$1,245.50',
     change: '+12.5%',
     icon: DollarSign,
-    color: 'bg-green-500'
+    color: 'bg-success-500'
   },
   {
     title: 'Órdenes',
     value: '156',
     change: '+8.2%',
     icon: ShoppingBag,
-    color: 'bg-blue-500'
+    color: 'bg-info-500'
   },
   {
     title: 'Productos',
     value: '48',
     change: '+2',
     icon: Package,
-    color: 'bg-purple-500'
+    color: 'bg-accent-500'
   },
   {
     title: 'Clientes',
     value: '892',
     change: '+45',
     icon: Users,
-    color: 'bg-orange-500'
+    color: 'bg-secondary-500'
   }
 ];
 
@@ -73,7 +73,7 @@ export const DashboardPage = () => {
                   <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
                     {stat.value}
                   </h3>
-                  <p className="text-sm text-green-600 dark:text-green-400 mt-1 flex items-center">
+                  <p className="text-sm text-success-600 dark:text-success-400 mt-1 flex items-center">
                     <TrendingUp className="w-4 h-4 mr-1" />
                     {stat.change}
                   </p>
@@ -111,10 +111,10 @@ export const DashboardPage = () => {
                   </p>
                   <span className={`text-xs px-2 py-1 rounded-full ${
                     order.status === 'Completado' 
-                      ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400'
+                      ? 'badge-success'
                       : order.status === 'En proceso'
-                      ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400'
-                      : 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400'
+                      ? 'badge-info'
+                      : 'badge-warning'
                   }`}>
                     {order.status}
                   </span>
@@ -133,7 +133,7 @@ export const DashboardPage = () => {
             {topProducts.map((product, index) => (
               <div key={index} className="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700 last:border-0">
                 <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-red-100 dark:bg-red-900/20 rounded-lg flex items-center justify-center font-bold text-red-600 dark:text-red-400">
+                  <div className="w-10 h-10 badge-primary rounded-lg flex items-center justify-center font-bold">
                     #{index + 1}
                   </div>
                   <div>

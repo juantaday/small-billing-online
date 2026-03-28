@@ -35,13 +35,13 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             'placeholder-gray-400 dark:placeholder-gray-500',
             'focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent',
             'disabled:opacity-50 disabled:cursor-not-allowed',
-            error && 'border-red-500 focus:ring-red-500',
+            error && 'border-danger-500 focus:ring-danger-500',
             className
           )}
           {...props}
         />
         {error && (
-          <p className="mt-1 text-sm text-red-600 dark:text-red-400">{error}</p>
+          <p className="mt-1 text-sm text-danger-600 dark:text-danger-400">{error}</p>
         )}
       </div>
     );

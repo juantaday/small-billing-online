@@ -92,7 +92,10 @@ export function useProductImages() {
       setLoading(true);
       setError(null);
       try {
+
+        console.log(`Deleting image with ID: ${imageId} from product: ${id}`);
         await apiClient.deleteBase(`/products/${id}/images/${imageId}`);
+        console.log(`Image with ID: ${imageId} deleted successfully`);
         setImages((prev) => prev.filter((img) => img.id !== imageId));
       } catch (err: any) {
         setError(err.message || 'Error al eliminar la imagen');

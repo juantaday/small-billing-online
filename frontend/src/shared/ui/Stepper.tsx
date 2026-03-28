@@ -43,9 +43,9 @@ export function Stepper({ steps, currentStep, className }: StepperProps) {
                     className={clsx(
                       'flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all duration-200',
                       isCompleted &&
-                        'bg-green-600 border-green-600 text-white',
+                        'bg-success-600 border-success-600 text-white',
                       isCurrent &&
-                        'bg-red-600 border-red-600 text-white scale-110 shadow-lg',
+                        'bg-primary-600 border-primary-600 text-white scale-110 shadow-lg',
                       isUpcoming &&
                         'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400'
                     )}
@@ -63,7 +63,7 @@ export function Stepper({ steps, currentStep, className }: StepperProps) {
                       className={clsx(
                         'h-0.5 w-full min-w-[40px] mx-2 transition-colors duration-200',
                         isCompleted
-                          ? 'bg-green-600'
+                          ? 'bg-success-600'
                           : 'bg-gray-300 dark:bg-gray-600'
                       )}
                     />
@@ -75,8 +75,8 @@ export function Stepper({ steps, currentStep, className }: StepperProps) {
                   <p
                     className={clsx(
                       'text-xs sm:text-sm font-medium transition-colors',
-                      isCurrent && 'text-red-600 dark:text-red-400',
-                      isCompleted && 'text-green-600 dark:text-green-400',
+                      isCurrent && 'text-primary-600 dark:text-primary-400',
+                      isCompleted && 'text-success-600 dark:text-success-400',
                       isUpcoming && 'text-gray-500 dark:text-gray-400'
                     )}
                   >

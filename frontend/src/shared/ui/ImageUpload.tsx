@@ -81,15 +81,10 @@ export function ImageUpload({
     try {
       await onUpload(selectedFile);
 
-      console.log('** Imagen subida con éxito');   
-      
-      // Limpiar después de subir exitosamente
-      console.log('a limpiando estado despues de upload'); 
       setPreview(null);
       setSelectedFile(null);
       setError(null);
       if (fileInputRef.current) {
-        console.log('b limpiando estado despues de upload');
         fileInputRef.current.value = '';
       }
       setUploading(false);
@@ -134,7 +129,7 @@ export function ImageUpload({
             />
             <button
               onClick={handleClear}
-              className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+              className="absolute top-2 right-2 p-1 bg-danger-500 text-white rounded-full hover:bg-danger-600 transition-colors"
               type="button"
             >
               <X className="w-4 h-4" />
@@ -168,8 +163,8 @@ export function ImageUpload({
 
       {/* Error Message */}
       {error && (
-        <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+        <div className="p-3 badge-danger border rounded-lg">
+          <p className="text-sm text-danger-600 dark:text-danger-400">{error}</p>
         </div>
       )}
 

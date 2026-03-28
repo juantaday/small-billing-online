@@ -8,10 +8,16 @@ import { Card, SpinnerLoading } from '@/shared/ui';
 import { Search, Plus } from 'lucide-react';
 import { useProducts } from '@/entities/product/api/useProducts';
 import { useCategories } from '@/entities/category/api/useCategories';
+import { ProductWithRelationsDto, PresentationDto } from '@small-billing/shared';
+import { resolveImageUrl } from '@/shared/lib';
 import clsx from 'clsx';
 
 interface ProductListProps {
-  onAddToCart?: (product: any) => void;
+  onAddToCart?: (
+    product: ProductWithRelationsDto,
+    presentation: PresentationDto,
+    imageUrl?: string
+  ) => void;
 }
 
 export function ProductList({ onAddToCart }: ProductListProps) {
@@ -88,14 +94,15 @@ export function ProductList({ onAddToCart }: ProductListProps) {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {filteredProducts.map(product => {
           const mainImage = product.images?.find((img: any) => img.isPrimary) || product.images?.[0];
-          const mainPresentation = product.presentations?.find((p: any) => p.active) || product.presentations?.[0];
+          const mainPresentation = (product.presentations?.find((p: any) => p.active) || product.presentations?.[0]) as PresentationDto | undefined;
+          const displayImageUrl = resolveImageUrl(mainImage?.imageUrl);
           
           return (
             <Card key={product.id} hoverable className="overflow-hidden group">
               {/* Imagen */}
               <div className="relative h-48 overflow-hidden">
                 <img
-                  src={mainImage?.imageUrl || 'https://via.placeholder.com/400x300?text=No+Image'}
+                  src={displayImageUrl}
                   alt={mainImage?.altText || product.name}
                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                 />
@@ -122,8 +129,8 @@ export function ProductList({ onAddToCart }: ProductListProps) {
                     ${Number(mainPresentation?.salePrice || 0).toFixed(2)}
                   </span>
                   <button
-                    disabled={!product.active}
-                    onClick={() => onAddToCart?.(product)}
+                    disabled={!product.active || !mainPresentation}
+                    onClick={() => mainPresentation && onAddToCart?.(product, mainPresentation, displayImageUrl)}
                     className="bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white p-2 rounded-lg transition-colors disabled:cursor-not-allowed"
                   >
                     <Plus className="w-5 h-5" />

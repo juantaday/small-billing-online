@@ -312,7 +312,7 @@ export function CustomerForm({ customer, onSuccess, onCancel }: CustomerFormProp
                 type="button"
                 onClick={() => setShowCategoryModal(true)}
                 disabled={isSubmitting}
-                className="px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                className="px-3 py-2 bg-info-500 hover:bg-info-600 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
                 title="Agregar nueva categoría"
               >
                 <Plus className="w-5 h-5" />
@@ -322,11 +322,11 @@ export function CustomerForm({ customer, onSuccess, onCancel }: CustomerFormProp
 
           {/* Información adicional para modo edición */}
           {(customer || existingCustomerData) && (
-            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
-              <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
+            <div className="badge-info p-4 rounded-lg border">
+              <h3 className="font-semibold text-info-900 dark:text-info-100 mb-2">
                 Información del Cliente
               </h3>
-              <div className="grid grid-cols-2 gap-2 text-sm text-blue-800 dark:text-blue-200">
+              <div className="grid grid-cols-2 gap-2 text-sm text-info-800 dark:text-info-200">
                 <div>
                   <span className="font-medium">Total Compras:</span> ${(customer?.totalPurchases || existingCustomerData?.totalPurchases || 0).toFixed(2)}
                 </div>
@@ -346,12 +346,12 @@ export function CustomerForm({ customer, onSuccess, onCancel }: CustomerFormProp
           {error && (
             <div className={`p-3 rounded-lg border ${
               error.includes('✏️') 
-                ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800' 
+                ? 'badge-warning' 
                 : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
             }`}>
               <p className={`text-sm ${
                 error.includes('✏️')
-                  ? 'text-yellow-700 dark:text-yellow-300'
+                  ? 'text-warning-700 dark:text-warning-300'
                   : 'text-red-600 dark:text-red-400'
               }`}>{error}</p>
             </div>

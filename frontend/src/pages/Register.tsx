@@ -74,10 +74,10 @@ export function Register() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center py-12 px-4">
+    <div className="min-h-screen bg-gradient-background flex items-center justify-center py-12 px-4">
       <div className="max-w-2xl w-full bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-red-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <div className="w-16 h-16 bg-primary-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <span className="text-white font-bold text-2xl">SB</span>
           </div>
           <h2 className="text-3xl font-bold text-gray-900 dark:text-white">
@@ -89,7 +89,7 @@ export function Register() {
         </div>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 rounded-lg">
+          <div className="mb-4 p-3 badge-danger border text-danger-600 dark:text-danger-400 rounded-lg">
             {error}
           </div>
         )}
@@ -173,11 +173,11 @@ export function Register() {
               className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 ${
                 passwordMatch
                   ? 'border-gray-300 dark:border-gray-600 focus:ring-red-500'
-                  : 'border-red-500 dark:border-red-500 focus:ring-red-500'
+                  : 'border-danger-500 dark:border-danger-500 focus:ring-danger-500'
               }`}
             />
             {!passwordMatch && (
-              <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+              <p className="mt-1 text-xs text-danger-600 dark:text-danger-400">
                 Las contraseñas no coinciden
               </p>
             )}
@@ -238,7 +238,7 @@ export function Register() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+            className="w-full bg-primary-600 hover:bg-primary-700 text-white py-3 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed font-medium"
           >
             {loading ? 'Registrando...' : 'Crear Cuenta'}
           </button>
@@ -246,7 +246,7 @@ export function Register() {
 
         <p className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
           ¿Ya tienes cuenta?{' '}
-          <Link to={ROUTES.LOGIN} className="text-red-600 hover:text-red-700 font-medium">
+          <Link to={ROUTES.LOGIN} className="text-primary-600 hover:text-primary-700 font-medium">
             Inicia sesión
           </Link>
         </p>

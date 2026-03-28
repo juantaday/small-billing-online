@@ -170,7 +170,7 @@ const CustomerCategoriesPage = () => {
           </div>
           <button
             onClick={() => handleOpenModal()}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors shadow-lg hover:shadow-xl"
+            className="flex items-center gap-2 bg-info-600 hover:bg-info-700 text-white px-6 py-3 rounded-lg transition-colors shadow-lg hover:shadow-xl"
           >
             <Plus size={20} />
             Nueva Categoría
@@ -185,8 +185,8 @@ const CustomerCategoriesPage = () => {
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Categorías</p>
                 <p className="text-3xl font-bold text-gray-900 dark:text-white">{categories.length}</p>
               </div>
-              <div className="bg-blue-100 dark:bg-blue-900/30 p-3 rounded-lg">
-                <Tag className="text-blue-600 dark:text-blue-400" size={24} />
+              <div className="bg-info-100 dark:bg-info-900/30 p-3 rounded-lg">
+                <Tag className="text-info-600 dark:text-info-400" size={24} />
               </div>
             </div>
           </Card>
@@ -199,8 +199,8 @@ const CustomerCategoriesPage = () => {
                   {Math.max(...categories.map(c => c.discountPercentage), 0)}%
                 </p>
               </div>
-              <div className="bg-green-100 dark:bg-green-900/30 p-3 rounded-lg">
-                <Percent className="text-green-600 dark:text-green-400" size={24} />
+              <div className="bg-success-100 dark:bg-success-900/30 p-3 rounded-lg">
+                <Percent className="text-success-600 dark:text-success-400" size={24} />
               </div>
             </div>
           </Card>
@@ -213,8 +213,8 @@ const CustomerCategoriesPage = () => {
                   {Math.max(...categories.map(c => c.pointsMultiplier), 0)}x
                 </p>
               </div>
-              <div className="bg-purple-100 dark:bg-purple-900/30 p-3 rounded-lg">
-                <Award className="text-purple-600 dark:text-purple-400" size={24} />
+              <div className="bg-accent-100 dark:bg-accent-900/30 p-3 rounded-lg">
+                <Award className="text-accent-600 dark:text-accent-400" size={24} />
               </div>
             </div>
           </Card>
@@ -287,14 +287,14 @@ const CustomerCategoriesPage = () => {
               <div className="flex gap-2">
                 <button
                   onClick={() => handleOpenModal(category)}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-blue-600 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 rounded-lg transition-colors"
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-info-600 bg-info-50 hover:bg-info-100 dark:bg-info-900/30 dark:hover:bg-info-900/50 rounded-lg transition-colors"
                 >
                   <Edit2 size={16} />
                   Editar
                 </button>
                 <button
                   onClick={() => openDeleteModal(category)}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-900/30 dark:hover:bg-red-900/50 rounded-lg transition-colors"
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-danger-600 bg-danger-50 hover:bg-danger-100 dark:bg-danger-900/30 dark:hover:bg-danger-900/50 rounded-lg transition-colors"
                 >
                   <Trash2 size={16} />
                   Eliminar
@@ -419,8 +419,8 @@ const CustomerCategoriesPage = () => {
                   </div>
                 </div>
 
-                <div className="bg-blue-50 dark:bg-blue-900/30 p-4 rounded-lg">
-                  <p className="text-sm text-blue-800 dark:text-blue-200">
+                <div className="badge-info p-4 rounded-lg">
+                  <p className="text-sm text-info-800 dark:text-info-200">
                     <strong>Nota:</strong> El umbral de ticket determina cada cuántos dólares de compra 
                     el cliente gana 1 punto de lealtad. Por ejemplo, $10 significa 1 punto por cada $10 de compra.
                   </p>
@@ -437,7 +437,7 @@ const CustomerCategoriesPage = () => {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="flex items-center gap-2 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
+                    className="flex items-center gap-2 px-6 py-2 bg-info-600 hover:bg-info-700 text-white rounded-lg transition-colors disabled:opacity-50"
                   >
                     <Save size={18} />
                     {loading ? 'Guardando...' : 'Guardar Categoría'}

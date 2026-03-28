@@ -14,6 +14,7 @@ import { ProductsPage } from '@/pages/ProductsPage';
 import { ProductManagementPage } from '@/pages/ProductManagementPage';
 import { CustomersPage } from '@/pages/CustomersPage';
 import {CategoriesPage} from '@/pages/CategoriesPage';
+import { OrdersPage } from '@/pages/OrdersPage';
 import CustomerCategoriesPage from '@/pages/CustomerCategoriesPage';
 import { Register } from '@/pages/Register';
 
@@ -106,6 +107,16 @@ export function AppRoutes() {
             <PrivateRoute>
               <MainLayout>
                 <CustomerCategoriesPage />
+              </MainLayout>
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path={ROUTES.ORDERS}
+          element={
+            <PrivateRoute>
+              <MainLayout>
+                <OrdersPage />
               </MainLayout>
             </PrivateRoute>
           }

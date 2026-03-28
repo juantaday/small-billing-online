@@ -81,7 +81,7 @@ export function Header({ onMenuClick }: HeaderProps) {
             >
               <Bell className="w-5 h-5 text-gray-700 dark:text-gray-300" />
               {unreadCount > 0 && (
-                <span className="absolute top-1 right-1 w-4 h-4 bg-red-600 text-white text-xs rounded-full flex items-center justify-center">
+                <span className="absolute top-1 right-1 w-4 h-4 bg-primary-600 text-white text-xs rounded-full flex items-center justify-center">
                   {unreadCount}
                 </span>
               )}
@@ -103,7 +103,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                     key={notification.id}
                     className={clsx(
                       'p-4 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors',
-                      notification.unread && 'bg-blue-50 dark:bg-blue-900/10'
+                      notification.unread && 'bg-info-50 dark:bg-info-900/10'
                     )}
                   >
                     <div className="flex justify-between items-start">
@@ -123,7 +123,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                 ))}
               </div>
               <div className="p-3 text-center border-t border-gray-200 dark:border-gray-700">
-                <button className="text-sm text-red-600 dark:text-red-400 font-medium hover:underline">
+                <button className="text-sm text-primary-600 dark:text-primary-400 font-medium hover:underline">
                   Ver todas las notificaciones
                 </button>
               </div>
@@ -136,7 +136,7 @@ export function Header({ onMenuClick }: HeaderProps) {
               onClick={() => setShowProfileMenu(!showProfileMenu)}
               className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
             >
-              <div className="w-8 h-8 bg-gradient-to-br from-red-600 to-orange-600 rounded-full flex items-center justify-center">
+              <div className="w-8 h-8 bg-gradient-brand rounded-full flex items-center justify-center">
                 <span className="text-white font-semibold text-sm">
                   {user?.email?.[0].toUpperCase() || 'U'}
                 </span>
@@ -185,7 +185,7 @@ export function Header({ onMenuClick }: HeaderProps) {
               <div className="border-t border-gray-200 dark:border-gray-700 py-2">
                 <button
                   onClick={logout}
-                  className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 flex items-center space-x-2"
+                  className="w-full px-4 py-2 text-left text-sm text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/10 flex items-center space-x-2"
                 >
                   <LogOut className="w-4 h-4" />
                   <span>Cerrar Sesión</span>

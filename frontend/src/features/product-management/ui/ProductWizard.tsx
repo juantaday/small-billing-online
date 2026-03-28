@@ -38,20 +38,17 @@ export function ProductWizard({
   initialData,
   mode = 'create',
 }: ProductWizardProps) {
-  const [currentStep, setCurrentStep] = useState(1);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const [formData, setFormData] = useState<ProductFormData>({
-    productId: initialData?.productId,
-    name: initialData?.name || '',
-    shortDescription: initialData?.shortDescription || '',
-    slug: initialData?.slug || '',
-    categoryId: initialData?.categoryId || '',
-    defaultPurchaseIndex: initialData?.defaultPurchaseIndex || null,    
-    defaultSaleIndex: initialData?.defaultSaleIndex || null,    
-    featured: initialData?.featured || false,
-    selectedTaxes: initialData?.selectedTaxes || [],
-    presentations: initialData?.presentations || [
+  const buildFormData = (data?: Partial<ProductFormData>): ProductFormData => ({
+    productId: data?.productId,
+    name: data?.name || '',
+    shortDescription: data?.shortDescription || '',
+    slug: data?.slug || '',
+    categoryId: data?.categoryId || '',
+    defaultPurchaseIndex: data?.defaultPurchaseIndex || null,
+    defaultSaleIndex: data?.defaultSaleIndex || null,
+    featured: data?.featured || false,
+    selectedTaxes: data?.selectedTaxes || [],
+    presentations: data?.presentations || [
       {
         name: 'Unidad',
         quantity: 1,
@@ -63,9 +60,27 @@ export function ProductWizard({
         maxStock: 100,
       },
     ],
-    defaultPurchasePresentationIndex: initialData?.defaultPurchasePresentationIndex || null,
-    defaultSalePresentationIndex: initialData?.defaultSalePresentationIndex || null,
+    defaultPurchasePresentationIndex: data?.defaultPurchasePresentationIndex || null,
+    defaultSalePresentationIndex: data?.defaultSalePresentationIndex || null,
   });
+
+  const [currentStep, setCurrentStep] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [formData, setFormData] = useState<ProductFormData>(() => buildFormData(initialData));
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const normalizedInitialData = {
+      ...initialData,
+      // El producto de la tabla viene con `id`, pero el wizard usa `productId`.
+      productId: initialData?.productId || (initialData as any)?.id,
+    };
+
+    setCurrentStep(1);
+    setFormData(buildFormData(normalizedInitialData));
+  }, [isOpen, initialData, mode]);
 
   useEffect(() => {
     console.log('🔍 [ProductWizard] Step changed to:', currentStep);
@@ -259,7 +274,7 @@ export function ProductWizard({
               <Button
                 onClick={handleSave}
                 disabled={isSubmitting}
-                className="bg-green-600 hover:bg-green-700"
+                className="bg-success-600 hover:bg-success-700"
               >
                 <Check className="w-4 h-4 mr-2" />
                 {isSubmitting ? 'Guardando...' : 'Guardar Producto'}

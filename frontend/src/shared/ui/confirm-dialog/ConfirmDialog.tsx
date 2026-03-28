@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, AlertTriangle, Info, CheckCircle, XCircle } from 'lucide-react';
 import { Button } from '../button/Button';
 import { SpinnerLoading } from '../loading/Loading';
@@ -29,6 +30,12 @@ export function ConfirmDialog({
   isLoading = false,
 }: ConfirmDialogProps) {
   const [error, setError] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
 
   // Limpiar error cuando se abre/cierra el modal
   useEffect(() => {
@@ -62,32 +69,32 @@ export function ConfirmDialog({
     };
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
   const variantConfig = {
     danger: {
       icon: XCircle,
-      iconColor: 'text-red-600 dark:text-red-400',
-      iconBg: 'bg-red-100 dark:bg-red-900/20',
-      confirmButton: 'bg-red-600 hover:bg-red-700 focus:ring-red-500',
+      iconColor: 'text-danger-600 dark:text-danger-400',
+      iconBg: 'bg-danger-100 dark:bg-danger-900/20',
+      confirmButton: 'bg-danger-600 hover:bg-danger-700 focus:ring-danger-500',
     },
     warning: {
       icon: AlertTriangle,
-      iconColor: 'text-yellow-600 dark:text-yellow-400',
-      iconBg: 'bg-yellow-100 dark:bg-yellow-900/20',
-      confirmButton: 'bg-yellow-600 hover:bg-yellow-700 focus:ring-yellow-500',
+      iconColor: 'text-warning-600 dark:text-warning-400',
+      iconBg: 'bg-warning-100 dark:bg-warning-900/20',
+      confirmButton: 'bg-warning-600 hover:bg-warning-700 focus:ring-warning-500',
     },
     info: {
       icon: Info,
-      iconColor: 'text-blue-600 dark:text-blue-400',
-      iconBg: 'bg-blue-100 dark:bg-blue-900/20',
-      confirmButton: 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500',
+      iconColor: 'text-info-600 dark:text-info-400',
+      iconBg: 'bg-info-100 dark:bg-info-900/20',
+      confirmButton: 'bg-info-600 hover:bg-info-700 focus:ring-info-500',
     },
     success: {
       icon: CheckCircle,
-      iconColor: 'text-green-600 dark:text-green-400',
-      iconBg: 'bg-green-100 dark:bg-green-900/20',
-      confirmButton: 'bg-green-600 hover:bg-green-700 focus:ring-green-500',
+      iconColor: 'text-success-600 dark:text-success-400',
+      iconBg: 'bg-success-100 dark:bg-success-900/20',
+      confirmButton: 'bg-success-600 hover:bg-success-700 focus:ring-success-500',
     },
   };
 
@@ -108,8 +115,8 @@ export function ConfirmDialog({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+  return createPortal(
+    <div className="fixed inset-0 z-[200] overflow-y-auto">
       {/* Overlay */}
       <div
         className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
@@ -118,9 +125,9 @@ export function ConfirmDialog({
       />
 
       {/* Modal */}
-      <div className="flex min-h-full items-center justify-center p-4">
+      <div className="relative z-[201] flex min-h-full items-center justify-center p-4">
         <div
-          className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6 transform transition-all"
+          className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6 transform transition-all"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Close button */}
@@ -149,10 +156,10 @@ export function ConfirmDialog({
 
           {/* Error message */}
           {error && (
-            <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <div className="mb-4 p-3 badge-danger border rounded-lg">
               <div className="flex items-start gap-2">
-                <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-red-900 dark:text-red-100">{error}</p>
+                <AlertTriangle className="w-5 h-5 text-danger-600 dark:text-danger-400 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-danger-900 dark:text-danger-100">{error}</p>
               </div>
             </div>
           )}
@@ -160,18 +167,20 @@ export function ConfirmDialog({
           {/* Actions */}
           <div className="flex flex-col-reverse sm:flex-row gap-3">
             <Button
+              type="button"
               variant="ghost"
               onClick={onClose}
               disabled={isLoading}
               fullWidth
-              autoFocus={variant === 'danger'}
             >
               {cancelText}
             </Button>
             <Button
+              type="button"
               onClick={handleConfirm}
               disabled={isLoading}
               fullWidth
+              autoFocus={variant === 'danger'}
               className={config.confirmButton}
             >
               {isLoading ? (
@@ -186,6 +195,7 @@ export function ConfirmDialog({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

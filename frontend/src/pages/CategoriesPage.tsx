@@ -19,7 +19,7 @@ const categories: Category[] = [
     description: 'Deliciosas hamburguesas de res, pollo y vegetarianas',
     productCount: 12,
     icon: '🍔',
-    color: 'from-red-500 to-orange-500'
+    color: 'from-primary-500 to-secondary-500'
   },
   {
     id: 2,
@@ -35,7 +35,7 @@ const categories: Category[] = [
     description: 'Papas fritas, aros de cebolla y más',
     productCount: 15,
     icon: '🍟',
-    color: 'from-yellow-500 to-orange-500'
+    color: 'from-warning-500 to-secondary-500'
   },
   {
     id: 4,
@@ -75,7 +75,7 @@ const categories: Category[] = [
     description: 'Opciones para comenzar el día',
     productCount: 9,
     icon: '🥞',
-    color: 'from-orange-500 to-red-500'
+    color: 'from-secondary-500 to-primary-500'
   }
 ];
 

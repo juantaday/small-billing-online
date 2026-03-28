@@ -13,12 +13,13 @@ import {
   Trash2,
   GripVertical,
   Image as ImageIcon,
+  Link as LinkIcon,
   AlertCircle,
 } from 'lucide-react';
 import { Button, Modal, ConfirmDialog, SpinnerLoading } from '@/shared/ui';
-import { ImageUpload } from '@/shared/ui/ImageUpload';
 import { useProductImages, ProductImage } from '@/entities/product/api/useProductImages';
 import { useToastContext } from '@/app/providers/toast';
+import { resolveImageUrl } from '@/shared/lib';
 import clsx from 'clsx';
 import {
   DndContext,
@@ -49,7 +50,7 @@ interface ProductImageManagerProps {
 interface SortableImageItemProps {
   image: ProductImage;
   onSetPrimary: (imageId: string) => void;
-  onDelete: (imageId: string) => void;
+  onDelete: (image: ProductImage) => void;
 }
 
 function SortableImageItem({ image, onSetPrimary, onDelete }: SortableImageItemProps) {
@@ -91,12 +92,12 @@ function SortableImageItem({ image, onSetPrimary, onDelete }: SortableImageItemP
       {/* Image Preview */}
       <div className="relative w-24 h-24 flex-shrink-0">
         <img
-          src={image.imageUrl}
+          src={resolveImageUrl(image.imageUrl)}
           alt={image.altText || 'Imagen del producto'}
           className="w-full h-full object-cover rounded-lg"
         />
         {image.isPrimary && (
-          <div className="absolute -top-2 -right-2 bg-yellow-400 text-yellow-900 rounded-full p-1">
+          <div className="absolute -top-2 -right-2 bg-warning-400 text-warning-900 rounded-full p-1">
             <Star className="w-4 h-4 fill-current" />
           </div>
         )}
@@ -120,14 +121,14 @@ function SortableImageItem({ image, onSetPrimary, onDelete }: SortableImageItemP
             onClick={() => onSetPrimary(image.id)}
             variant="secondary"
             size="sm"
-            className="text-yellow-600 hover:text-yellow-700 dark:text-yellow-400"
+            className="text-warning-600 hover:text-warning-700 dark:text-warning-400"
           >
             <Star className="w-4 h-4 mr-1" />
             Primaria
           </Button>
         )}
         <Button
-          onClick={() => onDelete(image.id)}
+          onClick={() => onDelete(image)}
           variant="secondary"
           size="sm"
           className="text-red-600 hover:text-red-700 dark:text-red-400"
@@ -159,7 +160,9 @@ export function ProductImageManager({
   const [localImages, setLocalImages] = useState<ProductImage[]>([]);
   const [imageToDelete, setImageToDelete] = useState<ProductImage | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
+  const [imageUrlInput, setImageUrlInput] = useState('');
+  const [altTextInput, setAltTextInput] = useState('');
+  const [isSavingUrl, setIsSavingUrl] = useState(false);
 
   // Configuración de drag and drop
   const sensors = useSensors(
@@ -181,42 +184,29 @@ export function ProductImageManager({
     setLocalImages(images);
   }, [images]);
 
-  // Función para subir imagen
-  const handleUploadImage = async (file: File): Promise<string> => {
-    setIsUploading(true);
-    try {
-      // Crear FormData para enviar el archivo
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('altText', file.name);
-      formData.append('displayOrder', images.length.toString());
+  const handleCreateImageFromUrl = async () => {
+    const imageUrl = imageUrlInput.trim();
+    if (!/^https?:\/\//i.test(imageUrl)) {
+      toast.error('Ingresa una URL válida que empiece con http:// o https://');
+      return;
+    }
 
-      // Subir el archivo al backend
-      const response = await fetch(`http://localhost:3001/products/${productId}/images/upload`, {
-        method: 'POST',
-        body: formData,
-        headers: {
-          // No incluir Content-Type, el navegador lo establece automáticamente con el boundary
-          // 'Authorization': `Bearer ${localStorage.getItem('token')}`, // Descomentar si usas auth
-        },
+    setIsSavingUrl(true);
+    try {
+      const newImage = await createImage(productId, {
+        imageUrl,
+        altText: altTextInput.trim() || undefined,
+        displayOrder: localImages.length,
       });
 
-      if (!response.ok) {
-        throw new Error('Error al subir la imagen');
-      }
-
-      const newImage = await response.json();
-      
-      // Actualizar la lista local
       setLocalImages((prev) => [...prev, newImage].sort((a, b) => a.displayOrder - b.displayOrder));
-      
-      toast.success('Imagen subida correctamente');
-      return newImage.imageUrl;
+      setImageUrlInput('');
+      setAltTextInput('');
+      toast.success('Imagen registrada correctamente');
     } catch (err) {
-      toast.error('Error al subir la imagen');
-      throw err;
+      toast.error('Error al registrar la imagen');
     } finally {
-      setIsUploading(false);
+      setIsSavingUrl(false);
     }
   };
 
@@ -260,15 +250,21 @@ export function ProductImageManager({
 
   // Eliminar imagen
   const handleDeleteConfirm = async () => {
+
+    console.log('Confirmando eliminación de imagen:', imageToDelete);
     if (!imageToDelete) return;
 
     setIsDeleting(true);
     try {
+
+      console.log(`Deleting image with ID: ${imageToDelete.id} from product: ${productId}`);
       await deleteImage(productId, imageToDelete.id);
+      // Actualizar estado local inmediatamente
+      setLocalImages((prev) => prev.filter((img) => img.id !== imageToDelete.id));
       toast.success('Imagen eliminada');
       setImageToDelete(null);
-    } catch (error) {
-      toast.error('Error al eliminar la imagen');
+    } catch (error: any) {
+      toast.error(error?.message || 'Error al eliminar la imagen');
     } finally {
       setIsDeleting(false);
     }
@@ -286,14 +282,45 @@ export function ProductImageManager({
           {/* Upload Section */}
           <div>
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Subir Nueva Imagen
+              Agregar Imagen por URL (Nube)
             </h3>
-            <ImageUpload
-              onImageSelect={() => {}}
-              onUpload={handleUploadImage}
-              maxSizeMB={5}
-              acceptedFormats={['image/jpeg', 'image/png', 'image/webp']}
-            />
+            <div className="space-y-3 p-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  URL de imagen
+                </label>
+                <div className="relative">
+                  <LinkIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="url"
+                    value={imageUrlInput}
+                    onChange={(e) => setImageUrlInput(e.target.value)}
+                    placeholder="https://images.unsplash.com/photo-..."
+                    className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Texto alternativo (opcional)
+                </label>
+                <input
+                  type="text"
+                  value={altTextInput}
+                  onChange={(e) => setAltTextInput(e.target.value)}
+                  placeholder="Ej: Hamburguesa clásica"
+                  className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                />
+              </div>
+
+              <Button
+                onClick={handleCreateImageFromUrl}
+                disabled={isSavingUrl || !imageUrlInput.trim()}
+              >
+                {isSavingUrl ? 'Guardando...' : 'Guardar URL'}
+              </Button>
+            </div>
           </div>
 
           {/* Images List */}
@@ -316,7 +343,7 @@ export function ProductImageManager({
                   No hay imágenes para este producto
                 </p>
                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                  Sube la primera imagen arriba
+                  Agrega la primera imagen con una URL de nube arriba
                 </p>
               </div>
             )}
@@ -324,10 +351,10 @@ export function ProductImageManager({
             {!loading && localImages.length > 0 && (
               <>
                 {/* Info sobre drag & drop */}
-                <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                <div className="mb-4 p-3 badge-info border rounded-lg">
                   <div className="flex items-start gap-2">
-                    <AlertCircle className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-                    <p className="text-sm text-blue-600 dark:text-blue-400">
+                    <AlertCircle className="w-5 h-5 text-info-600 dark:text-info-400 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-info-600 dark:text-info-400">
                       Arrastra las imágenes para cambiar su orden. La primera imagen se mostrará en la lista de productos.
                     </p>
                   </div>
@@ -349,10 +376,7 @@ export function ProductImageManager({
                           key={image.id}
                           image={image}
                           onSetPrimary={handleSetPrimary}
-                          onDelete={(imageId) => {
-                            const img = localImages.find((i) => i.id === imageId);
-                            if (img) setImageToDelete(img);
-                          }}
+                          onDelete={setImageToDelete}
                         />
                       ))}
                     </div>
@@ -367,7 +391,7 @@ export function ProductImageManager({
             <Button 
               onClick={onClose} 
               variant="secondary"
-              disabled={isUploading}
+              disabled={isSavingUrl}
             >
               Cerrar
             </Button>
@@ -391,6 +415,7 @@ export function ProductImageManager({
         variant="danger"
         isLoading={isDeleting}
       />
+      
     </>
   );
 }

@@ -61,7 +61,7 @@ export function Step5Review({ data }: Step5Props) {
                 <dd className="font-medium text-gray-900 dark:text-white">
                   {tax.percentage}%
                   {tax.isDefaultVat && (
-                    <span className="ml-2 text-xs bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 px-2 py-0.5 rounded">
+                    <span className="ml-2 text-xs badge-info px-2 py-0.5 rounded">
                       IVA Principal
                     </span>
                   )}
@@ -96,7 +96,7 @@ export function Step5Review({ data }: Step5Props) {
                     </span>
                   )}
                   {data.defaultSaleIndex === index && (
-                    <span className="px-2 py-1 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 text-xs font-medium rounded">
+                    <span className="px-2 py-1 badge-success text-xs font-medium rounded">
                       Venta
                     </span>
                   )}
@@ -146,8 +146,8 @@ export function Step5Review({ data }: Step5Props) {
       </div>
 
       {/* Alerta final */}
-      <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
-        <p className="text-sm text-green-800 dark:text-green-400">
+      <div className="badge-success p-4 rounded-lg border">
+        <p className="text-sm text-success-800 dark:text-success-400">
           ✅ Todo listo! Haz clic en "Guardar Producto" para completar el registro.
         </p>
       </div>

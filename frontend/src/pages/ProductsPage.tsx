@@ -4,11 +4,18 @@
  */
 
 import { ProductList } from '@/features/product-list';
+import { useCart } from '@/features/cart';
+import { ProductWithRelationsDto, PresentationDto } from '@small-billing/shared';
 
 export const ProductsPage = () => {
-  const handleAddToCart = (product: any) => {
-    // TODO: Implementar lógica de carrito
-    console.log('Agregar al carrito:', product);
+  const { addItem } = useCart();
+
+  const handleAddToCart = (
+    product: ProductWithRelationsDto,
+    presentation: PresentationDto,
+    imageUrl?: string
+  ) => {
+    addItem({ product, presentation, imageUrl });
   };
 
   return (

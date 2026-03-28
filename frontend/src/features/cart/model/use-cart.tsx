@@ -1,20 +1,35 @@
 /**
  * Feature: Add to Cart
- * Funcionalidad para agregar productos al carrito
+ * Funcionalidad para agregar presentaciones al carrito
  */
 
-import { useState, createContext, useContext, ReactNode } from 'react';
-import { ProductDto } from '@/entities/product';
+import { useEffect, useState, createContext, useContext, ReactNode } from 'react';
+import { ProductWithRelationsDto, PresentationDto } from '@small-billing/shared';
 
-interface CartItem extends ProductDto {
+const CART_STORAGE_KEY = 'small-billing.cart.v1';
+
+export interface CartItem {
+  id: string;
+  productId: string;
+  presentationId: string;
+  productName: string;
+  presentationName: string;
+  unitPrice: number;
   quantity: number;
+  imageUrl?: string;
+}
+
+interface AddToCartPayload {
+  product: ProductWithRelationsDto;
+  presentation: PresentationDto;
+  imageUrl?: string;
 }
 
 interface CartContextValue {
   items: CartItem[];
-  addItem: (product: ProductDto) => void;
-  removeItem: (productId: string) => void;
-  updateQuantity: (productId: string, quantity: number) => void;
+  addItem: (payload: AddToCartPayload) => void;
+  removeItem: (cartItemId: string) => void;
+  updateQuantity: (cartItemId: string, quantity: number) => void;
   clearCart: () => void;
   total: number;
   itemCount: number;
@@ -22,38 +37,80 @@ interface CartContextValue {
 
 const CartContext = createContext<CartContextValue | undefined>(undefined);
 
-export function CartProvider({ children }: { children: ReactNode }) {
-  const [items, setItems] = useState<CartItem[]>([]);
+function parseStoredCart(value: string | null): CartItem[] {
+  if (!value) return [];
 
-  const addItem = (product: ProductDto) => {
+  try {
+    const parsed = JSON.parse(value);
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed.filter((item) =>
+      typeof item?.id === 'string' &&
+      typeof item?.productId === 'string' &&
+      typeof item?.presentationId === 'string' &&
+      typeof item?.productName === 'string' &&
+      typeof item?.presentationName === 'string' &&
+      typeof item?.unitPrice === 'number' &&
+      typeof item?.quantity === 'number'
+    );
+  } catch {
+    return [];
+  }
+}
+
+export function CartProvider({ children }: { children: ReactNode }) {
+  const [items, setItems] = useState<CartItem[]>(() => {
+    if (typeof window === 'undefined') return [];
+    return parseStoredCart(localStorage.getItem(CART_STORAGE_KEY));
+  });
+
+  useEffect(() => {
+    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
+  }, [items]);
+
+  const addItem = ({ product, presentation, imageUrl }: AddToCartPayload) => {
+    const cartItemId = `${product.id}:${presentation.id}`;
+
     setItems((prev) => {
-      const existingItem = prev.find((item) => item.id === product.id);
-      
+      const existingItem = prev.find((item) => item.id === cartItemId);
+
       if (existingItem) {
         return prev.map((item) =>
-          item.id === product.id
+          item.id === cartItemId
             ? { ...item, quantity: item.quantity + 1 }
             : item
         );
       }
-      
-      return [...prev, { ...product, quantity: 1 }];
+
+      return [
+        ...prev,
+        {
+          id: cartItemId,
+          productId: product.id,
+          presentationId: presentation.id,
+          productName: product.name,
+          presentationName: presentation.name,
+          unitPrice: Number(presentation.salePrice || 0),
+          quantity: 1,
+          imageUrl,
+        },
+      ];
     });
   };
 
-  const removeItem = (productId: string) => {
-    setItems((prev) => prev.filter((item) => item.id !== productId));
+  const removeItem = (cartItemId: string) => {
+    setItems((prev) => prev.filter((item) => item.id !== cartItemId));
   };
 
-  const updateQuantity = (productId: string, quantity: number) => {
+  const updateQuantity = (cartItemId: string, quantity: number) => {
     if (quantity <= 0) {
-      removeItem(productId);
+      removeItem(cartItemId);
       return;
     }
-    
+
     setItems((prev) =>
       prev.map((item) =>
-        item.id === productId ? { ...item, quantity } : item
+        item.id === cartItemId ? { ...item, quantity } : item
       )
     );
   };
@@ -63,7 +120,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   };
 
   const total = items.reduce(
-    (sum, item) => sum + item.price * item.quantity,
+    (sum, item) => sum + item.unitPrice * item.quantity,
     0
   );
 

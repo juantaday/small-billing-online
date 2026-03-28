@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, Patch, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, Patch, UseInterceptors, UploadedFile, BadRequestException, Req } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ProductService } from './product.service';
 import { ProductImageService } from './product-image.service';
+import { LoggerService } from '../common/logger/logger.service';
 import {
   CreateProductDto,
   ProductDto,
@@ -12,11 +13,22 @@ import {
   ReorderImagesDto,
 } from '@small-billing/shared';
 
+interface HttpRequestLike {
+  protocol: string;
+  get(name: string): string | undefined;
+}
+
+interface UploadedFileLike {
+  originalname: string;
+  buffer: Buffer;
+}
+
 @Controller('products')
 export class ProductController {
   constructor(
     private readonly productService: ProductService,
     private readonly productImageService: ProductImageService,
+    private readonly logger: LoggerService
   ) {}
 
   @Get()
@@ -63,26 +75,30 @@ export class ProductController {
   // ==================== IMAGE MANAGEMENT ENDPOINTS ====================
 
   /**
-   * Obtener todas las imágenes de un producto
+   * Reordenar las imágenes de un producto (DEBE ir antes de :productId/images)
    */
-  @Get(':productId/images')
-  async getImages(@Param('productId') productId: string) {
-    return this.productImageService.findByProductId(productId);
+  @Patch(':productId/images/reorder')
+  async reorderImages(
+    @Param('productId') productId: string,
+    @Body() dto: ReorderImagesDto,
+  ) {
+    return this.productImageService.reorder(productId, dto);
   }
 
   /**
-   * Subir una nueva imagen para un producto
+   * Subir una nueva imagen para un producto (DEBE ir antes de :productId/images)
    */
   @Post(':productId/images/upload')
   @UseInterceptors(FileInterceptor('file'))
   async uploadImage(
     @Param('productId') productId: string,
-    @UploadedFile() file: Express.Multer.File,
+    @Req() req: HttpRequestLike,
+    @UploadedFile() file: UploadedFileLike,
     @Body('altText') altText?: string,
     @Body('displayOrder') displayOrder?: string,
   ) {
     if (!file) {
-      throw new BadRequestException('No se proporcionó ningún archivo');
+      throw new BadRequestException('No se proporcionó ningún arquivo');
     }
 
     // Guardar el archivo temporalmente en el servidor (public/uploads)
@@ -103,8 +119,8 @@ export class ProductController {
     // Guardar el archivo
     fs.writeFileSync(filePath, file.buffer);
     
-    // URL accesible desde el frontend
-    const imageUrl = `http://localhost:3000/uploads/products/${fileName}`;
+    // URL accesible desde el frontend usando host actual del backend
+    const imageUrl = `${req.protocol}://${req.get('host')}/uploads/products/${fileName}`;
     
     // Crear el registro en la base de datos
     return this.productImageService.create(productId, {
@@ -112,36 +128,6 @@ export class ProductController {
       altText: altText || file.originalname,
       displayOrder: displayOrder ? parseInt(displayOrder) : 0,
     });
-  }
-
-  /**
-   * Crear una imagen con URL (sin upload de archivo)
-   */
-  @Post(':productId/images')
-  async createImage(
-    @Param('productId') productId: string,
-    @Body() dto: Omit<CreateProductImageDto, 'productId'>,
-  ) {
-    return this.productImageService.create(productId, dto);
-  }
-
-  /**
-   * Actualizar una imagen existente
-   */
-  @Patch(':productId/images/:imageId')
-  async updateImage(
-    @Param('imageId') imageId: string,
-    @Body() dto: UpdateProductImageDto,
-  ) {
-    return this.productImageService.update(imageId, dto);
-  }
-
-  /**
-   * Eliminar una imagen
-   */
-  @Delete(':productId/images/:imageId')
-  async deleteImage(@Param('imageId') imageId: string) {
-    return this.productImageService.remove(imageId);
   }
 
   /**
@@ -156,13 +142,44 @@ export class ProductController {
   }
 
   /**
-   * Reordenar las imágenes de un producto
+   * Eliminar una imagen
    */
-  @Patch(':productId/images/reorder')
-  async reorderImages(
+  @Delete(':productId/images/:imageId')
+  async deleteImage(
     @Param('productId') productId: string,
-    @Body() dto: ReorderImagesDto,
+    @Param('imageId') imageId: string,
   ) {
-    return this.productImageService.reorder(productId, dto);
+    return this.productImageService.remove(imageId);
+  }
+
+  /**
+   * Actualizar una imagen existente
+   */
+  @Patch(':productId/images/:imageId')
+  async updateImage(
+    @Param('productId') productId: string,
+    @Param('imageId') imageId: string,
+    @Body() dto: UpdateProductImageDto,
+  ) {
+    return this.productImageService.update(imageId, dto);
+  }
+
+  /**
+   * Crear una imagen con URL (sin upload de archivo)
+   */
+  @Post(':productId/images')
+  async createImage(
+    @Param('productId') productId: string,
+    @Body() dto: Omit<CreateProductImageDto, 'productId'>,
+  ) {
+    return this.productImageService.create(productId, dto);
+  }
+
+  /**
+   * Obtener todas las imágenes de un producto (DEBE ir al final)
+   */
+  @Get(':productId/images')
+  async getImages(@Param('productId') productId: string) {
+    return this.productImageService.findByProductId(productId);
   }
 }

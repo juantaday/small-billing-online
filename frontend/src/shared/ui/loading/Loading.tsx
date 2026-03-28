@@ -57,7 +57,7 @@ export function Loading({
           <Loader2
             className={clsx(
               sizeClasses[size],
-              'animate-spin text-blue-600 dark:text-blue-400'
+              'animate-spin text-info-600 dark:text-info-400'
             )}
           />
         );
@@ -70,7 +70,7 @@ export function Loading({
                 key={i}
                 className={clsx(
                   dotSizeClasses[size],
-                  'bg-blue-600 dark:bg-blue-400 rounded-full animate-bounce'
+                  'bg-info-600 dark:bg-info-400 rounded-full animate-bounce'
                 )}
                 style={{
                   animationDelay: `${i * 0.15}s`,
@@ -86,13 +86,13 @@ export function Loading({
             <div
               className={clsx(
                 sizeClasses[size],
-                'bg-blue-600/20 dark:bg-blue-400/20 rounded-full animate-ping absolute'
+                'bg-info-600/20 dark:bg-info-400/20 rounded-full animate-ping absolute'
               )}
             />
             <div
               className={clsx(
                 sizeClasses[size],
-                'bg-blue-600 dark:bg-blue-400 rounded-full'
+                'bg-info-600 dark:bg-info-400 rounded-full'
               )}
               style={{ width: '50%', height: '50%' }}
             />

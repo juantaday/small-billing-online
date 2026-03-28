@@ -79,7 +79,7 @@ export function Step4DefaultPresentations({
               className={clsx(
                 'flex items-center space-x-3 p-4 rounded-lg border-2 cursor-pointer transition-all',
                 defaultSaleIndex === index
-                  ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
+                  ? 'border-success-500 bg-success-50 dark:bg-success-900/20'
                   : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
               )}
             >
@@ -88,7 +88,7 @@ export function Step4DefaultPresentations({
                 name="defaultSale"
                 checked={defaultSaleIndex === index}
                 onChange={() => onUpdate('defaultSalePresentationIndex', index)}
-                className="w-4 h-4 text-green-600 border-gray-300 focus:ring-green-500"
+                className="w-4 h-4 text-success-600 border-gray-300 focus:ring-success-500"
               />
               <div className="flex-1">
                 <p className="font-medium text-gray-900 dark:text-white">
@@ -104,8 +104,8 @@ export function Step4DefaultPresentations({
       </div>
 
       {/* Nota informativa */}
-      <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
-        <p className="text-sm text-blue-800 dark:text-blue-400">
+      <div className="badge-info p-4 rounded-lg border">
+        <p className="text-sm text-info-800 dark:text-info-400">
           <strong>Nota:</strong> Estas configuraciones son opcionales y pueden cambiarse después. 
           El sistema siempre permitirá seleccionar cualquier presentación disponible.
         </p>
