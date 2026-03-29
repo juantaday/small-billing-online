@@ -4,22 +4,10 @@
  */
 
 import { ProductList } from '@/features/product-list';
-import { useCart } from '@/features/cart';
-import { ProductWithRelationsDto, PresentationDto } from '@small-billing/shared';
 
 export const ProductsPage = () => {
-  const { addItem } = useCart();
-
-  const handleAddToCart = (
-    product: ProductWithRelationsDto,
-    presentation: PresentationDto,
-    imageUrl?: string
-  ) => {
-    addItem({ product, presentation, imageUrl });
-  };
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-screen-2xl mx-auto">
       {/* Header */}
       <div>
         <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
@@ -31,7 +19,7 @@ export const ProductsPage = () => {
       </div>
 
       {/* Product List Feature */}
-      <ProductList onAddToCart={handleAddToCart} />
+      <ProductList />
     </div>
   );
 };
