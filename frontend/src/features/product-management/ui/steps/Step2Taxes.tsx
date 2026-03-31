@@ -9,7 +9,7 @@ interface Step2Props {
 export function Step2Taxes({ data, onUpdate }: Step2Props) {
   const availableTaxes = [
     { code: '0', description: 'IVA 0%', percentage: 0, type: 'IVA' },
-    { code: '2', description: 'IVA 15%', percentage: 15, type: 'IVA' },
+    { code: '4', description: 'IVA 15%', percentage: 15, type: 'IVA' },
     { code: '6', description: 'No objeto de IVA', percentage: 0, type: 'IVA' },
     { code: '7', description: 'Exento de IVA', percentage: 0, type: 'IVA' },
     { code: '3072', description: 'ICE 10%', percentage: 10, type: 'ICE' },

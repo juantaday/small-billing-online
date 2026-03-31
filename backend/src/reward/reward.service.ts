@@ -21,6 +21,7 @@ export class RewardService {
         presentation: {
           include: {
             product: true,
+            presentationType: true,
           },
         },
       },
@@ -70,6 +71,7 @@ export class RewardService {
         presentation: {
           include: {
             product: true,
+            presentationType: true,
           },
         },
       },
@@ -103,6 +105,7 @@ export class RewardService {
         presentation: {
           include: {
             product: true,
+            presentationType: true,
           },
         },
       },

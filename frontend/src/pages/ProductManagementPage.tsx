@@ -14,6 +14,7 @@ import clsx from 'clsx';
 import { ProductFormData } from '@/features/product-management/ui/types';
 import { ProductWizard } from '@/features/product-management/ui/ProductWizard';
 import { ProductImageManager } from '@/features/product-management/ui/ProductImageManager';
+import { ApiError } from '@/shared/api';
 
 
 export function ProductManagementPage() {
@@ -31,7 +32,12 @@ export function ProductManagementPage() {
 
   const toast = useToastContext();
   const { products, loading, createProduct, updateProduct, deleteProduct } = useProducts();
-  const { createPresentation } = usePresentations();
+  const {
+    createPresentation,
+    updatePresentation,
+    deletePresentation,
+    fetchPresentationsByProduct,
+  } = usePresentations();
   const { categories } = useCategories();
 
   // Filtrar productos
@@ -105,25 +111,30 @@ export function ProductManagementPage() {
   // Guardar producto desde wizard
   const handleSaveProduct = async (data: ProductFormData): Promise<{ id: string }> => {
     try {
-      // 1. Crear o actualizar producto (solo info básica en paso 1)
+      // 1. Crear o actualizar producto
       const productData = {
         name: data.name,
         slug: data.slug,
         shortDescription: data.shortDescription,
         categoryId: data.categoryId,
         featured: data.featured,
+        selectedTaxes: data.selectedTaxes,
         active: true,
       };
 
       let productId: string;
 
-      if (data.productId) {
-        // Ya existe el producto, solo retornar el ID
-        productId = data.productId;
-      } else if (selectedProduct) {
-        // Actualizar
+      if (selectedProduct) {
+        // Edit mode
         const updatedProduct = await updateProduct(selectedProduct.id, {
           id: selectedProduct.id,
+          ...productData,
+        });
+        productId = updatedProduct.id;
+      } else if (data.productId) {
+        // Producto creado previamente en paso 1
+        const updatedProduct = await updateProduct(data.productId, {
+          id: data.productId,
           ...productData,
         });
         productId = updatedProduct.id;
@@ -133,28 +144,64 @@ export function ProductManagementPage() {
         productId = newProduct.id;
       }
 
-      // 2. Crear presentaciones (solo si hay presentaciones en el form)
-      if (data.presentations && data.presentations.length > 0) {
-        for (const presentation of data.presentations) {
-          console.log('Creating presentation for product:', productId, presentation);
-          await createPresentation({
-            productId,
-            name: presentation.name,
+      // 2. Sincronizar presentaciones (add/update/delete)
+      const validPresentations = (data.presentations || []).filter(
+        (presentation) => Boolean(presentation.presentationTypeId),
+      );
+      const existingPresentations = await fetchPresentationsByProduct(productId);
+      const existingIds = new Set(existingPresentations.map((presentation) => presentation.id));
+      const submittedIds = new Set(
+        validPresentations
+          .map((presentation) => presentation.id)
+          .filter((id): id is string => Boolean(id)),
+      );
+
+      for (const presentation of validPresentations) {
+        if (presentation.id && existingIds.has(presentation.id)) {
+          await updatePresentation(presentation.id, {
+            id: presentation.id,
+            presentationTypeId: presentation.presentationTypeId,
             quantity: presentation.quantity,
-            barcode: presentation.barcode,
             costPrice: presentation.costPrice,
             salePrice: presentation.salePrice,
-            stock: presentation.stock,
-            minStock: presentation.minStock,
-            maxStock: presentation.maxStock,
-            active: true,
+            active: presentation.active ?? true,
           });
+          continue;
+        }
+
+        if ((presentation.active ?? true) === false) {
+          continue;
+        }
+
+        await createPresentation({
+          productId,
+          presentationTypeId: presentation.presentationTypeId,
+          quantity: presentation.quantity,
+          barcode: presentation.barcode,
+          costPrice: presentation.costPrice,
+          salePrice: presentation.salePrice,
+          active: true,
+        });
+      }
+
+      for (const presentation of existingPresentations) {
+        if (!submittedIds.has(presentation.id)) {
+          try {
+            await deletePresentation(presentation.id);
+          } catch (error) {
+            if (error instanceof ApiError && error.status === 400) {
+              await updatePresentation(presentation.id, {
+                id: presentation.id,
+                active: false,
+              });
+              continue;
+            }
+
+            throw error;
+          }
         }
       }
 
-      // TODO: Guardar configuraciones de impuestos y presentaciones por defecto
-      // Esto requeriría agregar campos al schema
-      
       return { id: productId };
     } catch (error) {
       console.error('Error al guardar:', error);

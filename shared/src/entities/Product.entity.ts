@@ -1,3 +1,5 @@
+import { ProductTaxSelectionDto } from './ProductTax.entity';
+
 // DTO para crear producto
 export interface CreateProductDto {
   categoryId: string;
@@ -5,6 +7,7 @@ export interface CreateProductDto {
   slug: string;
   shortDescription?: string; // Descripción breve para menú
   longDescription?: string; // Descripción completa con detalles
+  selectedTaxes?: ProductTaxSelectionDto[];
   active?: boolean;
   featured?: boolean;
 }
@@ -29,4 +32,6 @@ export interface ProductWithRelationsDto extends ProductDto {
   category?: any; // CategoryDto
   images?: any[]; // ProductImageDto[]
   presentations?: any[]; // PresentationDto[]
+  productStock?: any; // ProductStockDto
+  productTaxes?: ProductTaxSelectionDto[];
 }

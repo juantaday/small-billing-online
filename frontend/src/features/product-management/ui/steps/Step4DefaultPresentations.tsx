@@ -14,6 +14,13 @@ export function Step4DefaultPresentations({
   defaultSaleIndex,
   onUpdate,
 }: Step4Props) {
+  const activePresentations = presentations
+    .map((presentation, index) => ({ presentation, index }))
+    .filter(({ presentation }) => presentation.active ?? true);
+
+  const getPresentationLabel = (presentation: PresentationFormData) =>
+    presentation.presentationTypeName || 'Tipo no seleccionado';
+
   return (
     <div className="space-y-6 max-w-2xl">
       <div>
@@ -34,7 +41,7 @@ export function Step4DefaultPresentations({
           Esto ayudará al sistema a sugerir la presentación correcta al registrar compras
         </p>
         <div className="space-y-2">
-          {presentations.map((presentation, index) => (
+          {activePresentations.map(({ presentation, index }) => (
             <label
               key={`purchase-${index}`}
               className={clsx(
@@ -53,7 +60,7 @@ export function Step4DefaultPresentations({
               />
               <div className="flex-1">
                 <p className="font-medium text-gray-900 dark:text-white">
-                  {presentation.name}
+                  {getPresentationLabel(presentation)}
                 </p>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   {presentation.quantity} {presentation.quantity === 1 ? 'unidad' : 'unidades'} - Costo: ${Number(presentation.costPrice || 0).toFixed(2)}
@@ -73,7 +80,7 @@ export function Step4DefaultPresentations({
           Esta será la presentación que aparecerá por defecto en el menú y sistema de ventas
         </p>
         <div className="space-y-2">
-          {presentations.map((presentation, index) => (
+          {activePresentations.map(({ presentation, index }) => (
             <label
               key={`sale-${index}`}
               className={clsx(
@@ -92,7 +99,7 @@ export function Step4DefaultPresentations({
               />
               <div className="flex-1">
                 <p className="font-medium text-gray-900 dark:text-white">
-                  {presentation.name}
+                  {getPresentationLabel(presentation)}
                 </p>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   {presentation.quantity} {presentation.quantity === 1 ? 'unidad' : 'unidades'} - Precio: ${Number(presentation.salePrice || 0).toFixed(2)}

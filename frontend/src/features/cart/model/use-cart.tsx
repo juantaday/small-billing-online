@@ -89,7 +89,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           productId: product.id,
           presentationId: presentation.id,
           productName: product.name,
-          presentationName: presentation.name,
+          presentationName: presentation.presentationType?.name || 'Presentación',
           unitPrice: Number(presentation.salePrice || 0),
           quantity: 1,
           imageUrl,

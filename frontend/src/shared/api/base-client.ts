@@ -3,6 +3,8 @@
  * Cliente HTTP base reutilizable en toda la aplicación
  */
 
+import { logger } from '@/shared/lib';
+
 interface RequestOptions extends RequestInit {
   params?: Record<string, string | number>;
 }
@@ -38,6 +40,10 @@ export class BaseApiClient {
       const errorData = await response.json().catch(() => ({
         message: response.statusText
       }));
+
+      logger.error('HTTP request failed', errorData, {
+        status: response.status,
+      });
       
       throw new ApiError(
         errorData.message || `HTTP Error: ${response.status}`,
@@ -55,13 +61,11 @@ export class BaseApiClient {
 
   private getHeaders(customHeaders?: HeadersInit): HeadersInit {
     const token = localStorage.getItem('accessToken');
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-      ...customHeaders,
-    };
+    const headers = new Headers(customHeaders);
+    headers.set('Content-Type', 'application/json');
 
     if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+      headers.set('Authorization', `Bearer ${token}`);
     }
 
     return headers;

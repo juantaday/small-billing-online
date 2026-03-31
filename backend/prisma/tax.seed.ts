@@ -183,6 +183,22 @@ export async function seedTaxes(prisma: PrismaClient) {
 
   console.log('✅ Valores de IRBPNR creados');
 
+  // 5. Configuración de impuesto por defecto para productos nuevos
+  await prisma.productTaxDefault.upsert({
+    where: { taxGroup: 'IVA' },
+    update: {
+      taxValueCode: iva15.code,
+      active: true,
+    },
+    create: {
+      taxGroup: 'IVA',
+      taxValueCode: iva15.code,
+      active: true,
+    },
+  });
+
+  console.log('✅ Configuración por defecto de IVA creada (15%)');
+
   console.log('✨ Tax seed completed successfully!');
 }
 

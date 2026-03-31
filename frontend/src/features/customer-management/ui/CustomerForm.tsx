@@ -44,7 +44,6 @@ export function CustomerForm({ customer, onSuccess, onCancel }: CustomerFormProp
   
   // Estado para manejar cuando encuentra un cliente existente
   const [existingCustomerData, setExistingCustomerData] = useState<CustomerWithRelationsDto | null>(null);
-  const [isEditMode, setIsEditMode] = useState(!!customer);
   
   // Estado para el modal de nueva categoría
   const [showCategoryModal, setShowCategoryModal] = useState(false);
@@ -143,8 +142,6 @@ export function CustomerForm({ customer, onSuccess, onCancel }: CustomerFormProp
         // Rellenar formulario con datos existentes
         setPeopleData(existingData.people);
         setCustomerCategoryId(existingData.customer.customerCategoryId);
-        setIsEditMode(true);
-        
         setError(`✏️ ${existingData.message}. Ahora puedes actualizar la categoría u otros datos.`);
       } else if (err.response?.data?.message) {
         setError(err.response.data.message);

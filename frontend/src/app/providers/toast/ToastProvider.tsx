@@ -4,6 +4,7 @@
  */
 
 import { ReactNode } from 'react';
+import { createPortal } from 'react-dom'; 
 import { ToastContainer, useToast } from '@/shared/ui';
 import { createContext, useContext } from 'react';
 
@@ -34,7 +35,10 @@ export function ToastProvider({ children }: ToastProviderProps) {
   return (
     <ToastContext.Provider value={{ success, error, warning, info }}>
       {children}
-      <ToastContainer toasts={toasts} onClose={removeToast} />
+      {createPortal( 
+        <ToastContainer toasts={toasts} onClose={removeToast} />,
+        document.body
+      )}
     </ToastContext.Provider>
   );
 }

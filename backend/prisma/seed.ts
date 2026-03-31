@@ -131,13 +131,20 @@ async function main() {
   // 3. Products & Presentations
   console.log('Creating products...');
 
+  // Asegurar tipo de presentación base para el trigger automático de productos
+  await prisma.presentationType.upsert({
+    where: { name: 'Unidad' },
+    update: { active: true },
+    create: { name: 'Unidad', active: true },
+  });
+
   // Hamburguesa Original
   const burger = await prisma.product.create({
     data: {
       name: 'Hamburguesa Original',
       slug: 'hamburguesa-original',
       shortDescription: 'Carne 100% res',
-      categoryId: productCategories[0].id,
+      category: { connect: { id: productCategories[0].id } },
       featured: true,
       active: true,
       images: {
@@ -153,42 +160,48 @@ async function main() {
       presentations: {
         create: [
           {
-            name: 'Unidad',
+            presentationType: {
+              connectOrCreate: {
+                where: { name: 'Unidad' },
+                create: { name: 'Unidad', active: true },
+              },
+            },
             quantity: 1,
             barcode: '7891234567001',
             costPrice: 5.50,
             lastCostPrice: 5.40,
             averageCostPrice: 5.45,
             salePrice: 8.99,
-            stock: 100,
-            minStock: 20,
-            maxStock: 200,
             active: true,
           },
           {
-            name: 'x6 Unidades',
+            presentationType: {
+              connectOrCreate: {
+                where: { name: 'x6 Unidades' },
+                create: { name: 'x6 Unidades', active: true },
+              },
+            },
             quantity: 6,
             barcode: '7891234567002',
             costPrice: 30.00,
             lastCostPrice: 29.50,
             averageCostPrice: 29.75,
             salePrice: 48.00,
-            stock: 20,
-            minStock: 5,
-            maxStock: 50,
             active: true,
           },
           {
-            name: 'Docena',
+            presentationType: {
+              connectOrCreate: {
+                where: { name: 'Docena' },
+                create: { name: 'Docena', active: true },
+              },
+            },
             quantity: 12,
             barcode: '7891234567003',
             costPrice: 55.00,
             lastCostPrice: 54.00,
             averageCostPrice: 54.50,
             salePrice: 89.99,
-            stock: 10,
-            minStock: 2,
-            maxStock: 30,
             active: true,
           },
         ],
@@ -202,7 +215,7 @@ async function main() {
       name: 'Pollo Crujiente',
       slug: 'pollo-crujiente',
       shortDescription: 'Pollo frito',
-      categoryId: productCategories[1].id,
+      category: { connect: { id: productCategories[1].id } },
       featured: true,
       active: true,
       images: {
@@ -218,33 +231,42 @@ async function main() {
       presentations: {
         create: [
           {
-            name: '3 Piezas',
+            presentationType: {
+              connectOrCreate: {
+                where: { name: '3 Piezas' },
+                create: { name: '3 Piezas', active: true },
+              },
+            },
             quantity: 3,
             barcode: '7891234567011',
             costPrice: 7.00,
             salePrice: 12.99,
-            stock: 50,
-            minStock: 10,
             active: true,
           },
           {
-            name: '6 Piezas',
+            presentationType: {
+              connectOrCreate: {
+                where: { name: '6 Piezas' },
+                create: { name: '6 Piezas', active: true },
+              },
+            },
             quantity: 6,
             barcode: '7891234567012',
             costPrice: 13.00,
             salePrice: 23.99,
-            stock: 30,
-            minStock: 5,
             active: true,
           },
           {
-            name: 'Balde (12 piezas)',
+            presentationType: {
+              connectOrCreate: {
+                where: { name: 'Balde (12 piezas)' },
+                create: { name: 'Balde (12 piezas)', active: true },
+              },
+            },
             quantity: 12,
             barcode: '7891234567013',
             costPrice: 24.00,
             salePrice: 44.99,
-            stock: 15,
-            minStock: 3,
             active: true,
           },
         ],
@@ -258,7 +280,7 @@ async function main() {
       name: 'Papas Fritas',
       slug: 'papas-fritas',
       shortDescription: 'Papas doradas',
-      categoryId: productCategories[2].id,
+      category: { connect: { id: productCategories[2].id } },
       active: true,
       images: {
         create: [
@@ -273,38 +295,63 @@ async function main() {
       presentations: {
         create: [
           {
-            name: 'Personal',
+            presentationType: {
+              connectOrCreate: {
+                where: { name: 'Personal' },
+                create: { name: 'Personal', active: true },
+              },
+            },
             quantity: 1,
             barcode: '7891234567021',
             costPrice: 1.50,
             salePrice: 2.99,
-            stock: 200,
-            minStock: 50,
             active: true,
           },
           {
-            name: 'Mediana',
+            presentationType: {
+              connectOrCreate: {
+                where: { name: 'Mediana' },
+                create: { name: 'Mediana', active: true },
+              },
+            },
             quantity: 1,
             barcode: '7891234567022',
             costPrice: 2.00,
             salePrice: 3.99,
-            stock: 150,
-            minStock: 40,
             active: true,
           },
           {
-            name: 'Grande',
+            presentationType: {
+              connectOrCreate: {
+                where: { name: 'Grande' },
+                create: { name: 'Grande', active: true },
+              },
+            },
             quantity: 1,
             barcode: '7891234567023',
             costPrice: 2.50,
             salePrice: 4.99,
-            stock: 100,
-            minStock: 30,
             active: true,
           },
         ],
       },
     },
+  });
+
+  // Inicializar stock base unificado por producto (en unidades base)
+  await prisma.productStock.update({
+    where: { productId: burger.id },
+    data: { stock: 100, minStock: 20, maxStock: 200 },
+  });
+
+  await prisma.productStock.update({
+    where: { productId: chicken.id },
+    data: { stock: 150, minStock: 20, maxStock: 300 },
+  });
+
+  await prisma.productStock.update({
+    where: { productId: fries.id },
+    data: { stock: 200, minStock: 50, maxStock: 400 },
   });
 
   console.log(`✅ Created 3 products with presentations`);

@@ -1,6 +1,8 @@
 // Tipos específicos del wizard de productos
 // Reutilizamos tipos de @small-billing/shared cuando sea posible
 
+import { ProductTaxSelectionDto } from '@small-billing/shared';
+
 export interface ProductFormData {
   productId?: string;
   name: string;
@@ -8,7 +10,7 @@ export interface ProductFormData {
   slug: string;
   categoryId: string;
   featured: boolean;
-  selectedTaxes: ProductTaxSelection[];
+  selectedTaxes: ProductTaxSelectionDto[];
   presentations: PresentationFormData[];
   defaultPurchasePresentationIndex: number | null;
   defaultSalePresentationIndex: number | null;
@@ -20,17 +22,17 @@ export interface ProductTaxSelection {
   taxValueCode: string;
   taxValueDescription: string;
   percentage: number;
-  customPercent?: number;
+  appliedRate?: number;
   isDefaultVat: boolean;
 }
 
 export interface PresentationFormData {
-  name: string;
+  id?: string;
+  presentationTypeId: string;
+  presentationTypeName?: string;
   quantity: number;
   barcode: string | null;
   costPrice: number;
   salePrice: number;
-  stock: number;
-  minStock: number;
-  maxStock: number;
+  active?: boolean;
 }

@@ -1,6 +1,6 @@
 import { Menu, Bell, Sun, Moon, User, LogOut, Settings, CreditCard } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
-import { useAuth } from '@/features/auth';
+import { APP_ROLES, useAuth } from '@/features/auth';
 import { useTheme } from '@/app/providers/theme';
 import clsx from 'clsx';
 
@@ -9,7 +9,7 @@ interface HeaderProps {
 }
 
 export function Header({ onMenuClick }: HeaderProps) {
-  const { user, logout } = useAuth();
+  const { user, role, setRole, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -146,7 +146,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                   {user?.email?.split('@')[0] || 'Usuario'}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Administrador
+                  {role}
                 </p>
               </div>
             </button>
@@ -168,6 +168,24 @@ export function Header({ onMenuClick }: HeaderProps) {
               </div>
 
               <div className="py-2">
+                {/* Selector de rol estático para pruebas de permisos */}
+                <div className="px-4 py-2">
+                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                    Rol activo
+                  </label>
+                  <select
+                    value={role}
+                    onChange={(event) => setRole(event.target.value as (typeof APP_ROLES)[number])}
+                    className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                  >
+                    {APP_ROLES.map((appRole) => (
+                      <option key={appRole} value={appRole}>
+                        {appRole}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 <button className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center space-x-2">
                   <User className="w-4 h-4" />
                   <span>Mi Perfil</span>

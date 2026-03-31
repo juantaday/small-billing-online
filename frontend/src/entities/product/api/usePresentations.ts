@@ -12,15 +12,17 @@ export function usePresentations() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchPresentationsByProduct = async (productId: string) => {
+  const fetchPresentationsByProduct = async (productId: string): Promise<PresentationDto[]> => {
     setLoading(true);
     setError(null);
     try {
       const data = await presentationApi.getByProductId(productId);
       setPresentations(data);
+      return data;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido');
       console.error('Error al cargar presentaciones:', err);
+      throw err;
     } finally {
       setLoading(false);
     }
@@ -42,7 +44,7 @@ export function usePresentations() {
     data: UpdatePresentationDto
   ): Promise<PresentationDto> => {
     try {
-      const presentation = await presentationApi.update(Number(id), data);
+      const presentation = await presentationApi.update(id, data);
       return presentation;
     } catch (err) {
       console.error('Error al actualizar presentación:', err);
@@ -52,7 +54,7 @@ export function usePresentations() {
 
   const deletePresentation = async (id: string): Promise<void> => {
     try {
-      await presentationApi.delete(Number(id));
+      await presentationApi.delete(id);
     } catch (err) {
       console.error('Error al eliminar presentación:', err);
       throw err;

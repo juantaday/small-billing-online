@@ -10,7 +10,8 @@
     "start": "node dist/backend/src/main.js",
     "start:prod": "node dist/backend/src/main.js",
     "prisma:generate": "prisma generate --schema=prisma/schema.prisma",
-    "prisma:migrate": "prisma migrate deploy --schema=prisma/schema.prisma"
+    "prisma:migrate": "prisma migrate deploy --schema=prisma/schema.prisma",
+    "tax:backfill:iva": "ts-node prisma/seeds/backfill-product-taxes-iva.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",

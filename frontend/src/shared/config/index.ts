@@ -20,6 +20,7 @@ export const ROUTES = {
   DASHBOARD: '/dashboard',
   PRODUCTS: '/products',
   PRODUCT_MANAGEMENT: '/products/management',
+  PRESENTATION_TYPES: '/presentation-types',
   CATEGORIES: '/categories',
   CUSTOMERS: '/customers',
   CUSTOMER_CATEGORIES: '/customer-categories',

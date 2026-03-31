@@ -6,6 +6,7 @@
 import { useState, useEffect } from 'react';
 import { X, ArrowLeft, ArrowRight, Check } from 'lucide-react';
 import { Stepper, Step, Button } from '@/shared/ui';
+import { useToastContext } from '@/app/providers/toast';
 import { ProductFormData } from './types';
 import {
   Step1BasicInfo,
@@ -38,6 +39,8 @@ export function ProductWizard({
   initialData,
   mode = 'create',
 }: ProductWizardProps) {
+  const toast = useToastContext();
+
   const buildFormData = (data?: Partial<ProductFormData>): ProductFormData => ({
     productId: data?.productId,
     name: data?.name || '',
@@ -47,19 +50,29 @@ export function ProductWizard({
     defaultPurchaseIndex: data?.defaultPurchaseIndex || null,
     defaultSaleIndex: data?.defaultSaleIndex || null,
     featured: data?.featured || false,
-    selectedTaxes: data?.selectedTaxes || [],
-    presentations: data?.presentations || [
-      {
-        name: 'Unidad',
-        quantity: 1,
-        barcode: null,
-        costPrice: 0,
-        salePrice: 0,
-        stock: 0,
-        minStock: 0,
-        maxStock: 100,
-      },
-    ],
+    selectedTaxes:
+      data?.selectedTaxes ||
+      ((data as any)?.productTaxes as ProductFormData['selectedTaxes'] | undefined) ||
+      [],
+    presentations:
+      (data?.presentations as any[] | undefined)?.map((presentation) => ({
+        ...presentation,
+        id: presentation.id,
+        active: presentation.active ?? true,
+        presentationTypeId: presentation.presentationTypeId || '',
+        presentationTypeName:
+          presentation.presentationTypeName || presentation.presentationType?.name,
+      })) || [
+        {
+          id: undefined,
+          presentationTypeId: '',
+          quantity: 1,
+          barcode: null,
+          costPrice: 0,
+          salePrice: 0,
+          active: true,
+        },
+      ],
     defaultPurchasePresentationIndex: data?.defaultPurchasePresentationIndex || null,
     defaultSalePresentationIndex: data?.defaultSalePresentationIndex || null,
   });
@@ -111,7 +124,7 @@ export function ProductWizard({
         goToStep(currentStep + 1);
       } catch (error) {
         console.error('Error al crear producto:', error);
-        alert('Error al guardar el producto. Por favor intenta de nuevo.');
+        toast.error('No se pudo guardar el producto', 'Por favor intenta de nuevo.');
       } finally {
         setIsSubmitting(false);
       }
@@ -123,13 +136,18 @@ export function ProductWizard({
   const goBack = () => goToStep(currentStep - 1);
 
   const validateCurrentStep = (): boolean => {
+    const activePresentations = formData.presentations.filter((p) => p.active ?? true);
+
     switch (currentStep) {
       case 1:
         return !!formData.name && !!formData.categoryId;
       case 2:
         return formData.selectedTaxes.some(t => t.taxValueDescription.includes('IVA'));
       case 3:
-        return formData.presentations.length > 0 && formData.presentations.every(p => p.name);
+        return (
+          activePresentations.length > 0 &&
+          activePresentations.every((p) => !!p.presentationTypeId)
+        );
       case 4:
       case 5:
         return true;
@@ -142,12 +160,14 @@ export function ProductWizard({
     setIsSubmitting(true);
     try {
       await onSave(formData);
-
-      window.location.reload();
+      toast.success(
+        mode === 'create' ? 'Producto creado' : 'Producto actualizado',
+        'Los cambios se guardaron correctamente.',
+      );
       onClose();
     } catch (error) {
       console.error('Error al guardar producto:', error);
-      alert('Error al completar el proceso');
+      toast.error('Error al guardar producto', 'Revisa los datos e intenta nuevamente.');
     } finally {
       setIsSubmitting(false);
     }
@@ -219,6 +239,9 @@ export function ProductWizard({
           <div>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
               {mode === 'create' ? 'Nuevo Producto' : 'Editar Producto'}
+              <span className="ml-3 inline-flex items-center rounded-md bg-red-100 px-2.5 py-1 text-sm font-semibold text-red-800 dark:bg-red-900/40 dark:text-red-200">
+                {formData.name?.trim() || 'Sin nombre'}
+              </span>
             </h2>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
               Completa los pasos para {mode === 'create' ? 'agregar' : 'actualizar'} el producto

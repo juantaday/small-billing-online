@@ -179,7 +179,7 @@ export function ProductList() {
                       >
                         {activePresentations.map((p) => (
                           <option key={p.id} value={p.id}>
-                            {p.name} - ${Number(p.salePrice || 0).toFixed(2)}
+                            {p.presentationType?.name || 'Presentación'} - ${Number(p.salePrice || 0).toFixed(2)}
                           </option>
                         ))}
                       </select>

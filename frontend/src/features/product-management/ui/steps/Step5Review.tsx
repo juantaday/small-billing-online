@@ -10,6 +10,9 @@ export function Step5Review({ data }: Step5Props) {
     console.log('📋 [Step5Review] Mounted with', data.presentations.length, 'presentations');
   }, []);
 
+  const getPresentationLabel = (presentation: (typeof data.presentations)[number]) =>
+    presentation.presentationTypeName || 'Tipo no seleccionado';
+
   return (
     <div className="space-y-6">
       <div>
@@ -87,7 +90,7 @@ export function Step5Review({ data }: Step5Props) {
             >
               <div className="flex items-center justify-between mb-2">
                 <h5 className="font-medium text-gray-900 dark:text-white">
-                  {presentation.name}
+                  {getPresentationLabel(presentation)}
                 </h5>
                 <div className="flex gap-2">
                   {data.defaultPurchaseIndex === index && (
@@ -128,15 +131,9 @@ export function Step5Review({ data }: Step5Props) {
                   </span>
                 </div>
                 <div>
-                  <span className="text-gray-600 dark:text-gray-400">Stock:</span>
+                  <span className="text-gray-600 dark:text-gray-400">Estado:</span>
                   <span className="ml-2 text-gray-900 dark:text-white">
-                    {presentation.stock}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-gray-600 dark:text-gray-400">Stock mín:</span>
-                  <span className="ml-2 text-gray-900 dark:text-white">
-                    {presentation.minStock}
+                    {(presentation.active ?? true) ? 'Activa' : 'Inactiva'}
                   </span>
                 </div>
               </div>

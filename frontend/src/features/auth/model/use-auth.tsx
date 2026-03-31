@@ -5,22 +5,40 @@
 
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { userApi, UserDto, LoginDto } from '@/entities/user';
+import { logger } from '@/shared/lib';
+import {
+  AppRole,
+  APP_ROLES,
+  canAccessRoute,
+  DEFAULT_APP_ROLE,
+} from './roles';
+
+const ROLE_STORAGE_KEY = 'small-billing.user-role';
 
 interface AuthContextValue {
   user: UserDto | null;
+  role: AppRole;
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (credentials: LoginDto) => Promise<void>;
   logout: () => void;
+  setRole: (role: AppRole) => void;
+  canAccess: (route: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserDto | null>(null);
+  const [role, setRoleState] = useState<AppRole>(DEFAULT_APP_ROLE);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    const storedRole = localStorage.getItem(ROLE_STORAGE_KEY) as AppRole | null;
+    if (storedRole && APP_ROLES.includes(storedRole)) {
+      setRoleState(storedRole);
+    }
+
     const token = localStorage.getItem('accessToken');
     if (token) {
       loadUserProfile();
@@ -34,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const userData = await userApi.getProfile();
       setUser(userData);
     } catch (error) {
-      console.error('Error loading profile:', error);
+      logger.error('Error loading profile', error);
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
     } finally {
@@ -51,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       setUser(response.user);
     } catch (error) {
-      console.error('Login error:', error);
+      logger.error('Login error', error);
       throw error;
     }
   };
@@ -62,14 +80,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
+  const setRole = (nextRole: AppRole) => {
+    setRoleState(nextRole);
+    localStorage.setItem(ROLE_STORAGE_KEY, nextRole);
+  };
+
   return (
     <AuthContext.Provider
       value={{
         user,
+        role,
         isAuthenticated: !!user,
         isLoading,
         login,
         logout,
+        setRole,
+        canAccess: (route: string) => canAccessRoute(role, route),
       }}
     >
       {children}

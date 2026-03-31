@@ -1,4 +1,5 @@
 import { PresentationFormData } from '../types';
+import { usePresentationTypes } from '@/entities/presentation-type/api/usePresentationTypes';
 
 interface Step3Props {
   presentations: PresentationFormData[];
@@ -6,18 +7,18 @@ interface Step3Props {
 }
 
 export function Step3Presentations({ presentations, onUpdate }: Step3Props) {
+  const { presentationTypes, loading: loadingPresentationTypes } = usePresentationTypes();
+
   const addPresentation = () => {
     onUpdate([
       ...presentations,
       {
-        name: '',
+        presentationTypeId: '',
         quantity: 1,
         barcode: null,
         costPrice: 0,
         salePrice: 0,
-        stock: 0,
-        minStock: 0,
-        maxStock: 100,
+        active: true,
       },
     ]);
   };
@@ -32,6 +33,11 @@ export function Step3Presentations({ presentations, onUpdate }: Step3Props) {
     const updated = [...presentations];
     updated[index] = { ...updated[index], [field]: value };
     onUpdate(updated);
+  };
+
+  const togglePresentationStatus = (index: number) => {
+    const current = presentations[index];
+    updatePresentation(index, 'active', !(current.active ?? true));
   };
 
   return (
@@ -55,28 +61,59 @@ export function Step3Presentations({ presentations, onUpdate }: Step3Props) {
               <h4 className="font-semibold text-gray-900 dark:text-white">
                 Presentación #{index + 1}
               </h4>
-              {presentations.length > 1 && (
+              <div className="flex items-center gap-3">
                 <button
-                  onClick={() => removePresentation(index)}
-                  className="text-red-600 hover:text-red-700 text-sm font-medium"
+                  onClick={() => togglePresentationStatus(index)}
+                  className="text-xs font-medium px-2 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-gray-400"
                 >
-                  Eliminar
+                  {(presentation.active ?? true) ? 'Desactivar' : 'Activar'}
                 </button>
-              )}
+                {presentations.length > 1 && (
+                  <button
+                    onClick={() => removePresentation(index)}
+                    className="text-red-600 hover:text-red-700 text-sm font-medium"
+                  >
+                    Eliminar
+                  </button>
+                )}
+              </div>
             </div>
+
+            {(presentation.active ?? true) === false && (
+              <p className="mb-4 text-xs text-amber-600 dark:text-amber-400">
+                Esta presentación quedará inactiva al guardar.
+              </p>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Nombre <span className="text-red-600">*</span>
+                  Tipo de presentación <span className="text-red-600">*</span>
                 </label>
-                <input
-                  type="text"
-                  value={presentation.name}
-                  onChange={(e) => updatePresentation(index, 'name', e.target.value)}
-                  placeholder="Ej: Unidad, x6, Docena"
+                <select
+                  value={presentation.presentationTypeId}
+                  onChange={(e) => {
+                    const selected = presentationTypes.find((type) => type.id === e.target.value);
+                    const updated = [...presentations];
+                    updated[index] = {
+                      ...updated[index],
+                      presentationTypeId: e.target.value,
+                      presentationTypeName: selected?.name || undefined,
+                    };
+                    onUpdate(updated);
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                />
+                  disabled={loadingPresentationTypes}
+                >
+                  <option value="">
+                    {loadingPresentationTypes ? 'Cargando tipos...' : 'Selecciona un tipo'}
+                  </option>
+                  {presentationTypes.map((type) => (
+                    <option key={type.id} value={type.id}>
+                      {type.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
@@ -86,7 +123,7 @@ export function Step3Presentations({ presentations, onUpdate }: Step3Props) {
                 <input
                   type="number"
                   value={presentation.quantity}
-                  onChange={(e) => updatePresentation(index, 'quantity', parseInt(e.target.value))}
+                  onChange={(e) => updatePresentation(index, 'quantity', Number(e.target.value) || 1)}
                   min="1"
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
                 />
@@ -115,7 +152,7 @@ export function Step3Presentations({ presentations, onUpdate }: Step3Props) {
                 <input
                   type="number"
                   value={presentation.costPrice}
-                  onChange={(e) => updatePresentation(index, 'costPrice', parseFloat(e.target.value))}
+                  onChange={(e) => updatePresentation(index, 'costPrice', Number(e.target.value) || 0)}
                   min="0"
                   step="0.01"
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
@@ -129,35 +166,9 @@ export function Step3Presentations({ presentations, onUpdate }: Step3Props) {
                 <input
                   type="number"
                   value={presentation.salePrice}
-                  onChange={(e) => updatePresentation(index, 'salePrice', parseFloat(e.target.value))}
+                  onChange={(e) => updatePresentation(index, 'salePrice', Number(e.target.value) || 0)}
                   min="0"
                   step="0.01"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Stock Inicial
-                </label>
-                <input
-                  type="number"
-                  value={presentation.stock}
-                  onChange={(e) => updatePresentation(index, 'stock', parseInt(e.target.value))}
-                  min="0"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Stock Mínimo
-                </label>
-                <input
-                  type="number"
-                  value={presentation.minStock}
-                  onChange={(e) => updatePresentation(index, 'minStock', parseInt(e.target.value))}
-                  min="0"
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
                 />
               </div>

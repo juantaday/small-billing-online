@@ -32,6 +32,16 @@ export class CustomerController {
     return this.customerService.getTopCustomers(limit ? parseInt(limit.toString()) : 10);
   }
 
+  @Get('search')
+  async search(@Query('q') q?: string): Promise<CustomerWithRelationsDto[]> {
+    return this.customerService.search(q || '');
+  }
+
+  @Get('by-user/:userId')
+  async findByUser(@Param('userId') userId: string): Promise<CustomerWithRelationsDto | null> {
+    return this.customerService.findByUserId(userId);
+  }
+
   @Get('people/:peopleId')
   async findByPeople(@Param('peopleId') peopleId: string): Promise<CustomerDto> {
     return this.customerService.findByPeople(peopleId);

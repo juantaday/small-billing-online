@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Body, Param, Query } from '@nestjs/common';
+import { Controller, Delete, Get, Post, Put, Body, Param, Query } from '@nestjs/common';
 import { PresentationService } from './presentation.service';
 import {
   CreatePresentationDto,
@@ -47,5 +47,10 @@ export class PresentationController {
   @Put(':id/stock')
   async updateStock(@Body() data: UpdateStockDto): Promise<PresentationDto> {
     return this.presentationService.updateStock(data);
+  }
+
+  @Delete(':id')
+  async remove(@Param('id') id: string): Promise<PresentationDto> {
+    return this.presentationService.remove(id);
   }
 }

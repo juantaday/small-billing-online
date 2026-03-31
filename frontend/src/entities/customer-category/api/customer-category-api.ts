@@ -24,7 +24,7 @@ class CustomerCategoryApi extends BaseApiClient {
     return this.post<CustomerCategoryDto>('/customer-categories', data);
   }
 
-  async update(id: string, data: CreateCustomerCategoryDto): Promise<CustomerCategoryDto> {
+  async update(id: string, data: UpdateCustomerCategoryDto): Promise<CustomerCategoryDto> {
     return this.put<CustomerCategoryDto>(`/customer-categories/${id}`, data);
   }
 

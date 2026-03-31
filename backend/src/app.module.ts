@@ -9,6 +9,10 @@ import { CustomerCategoryModule } from './customer-category/customer-category.mo
 import { CustomerModule } from './customer/customer.module';
 import { PaymentMethodModule } from './payment-method/payment-method.module';
 import { RewardModule } from './reward/reward.module';
+import { PresentationTypeModule } from './presentation-type/presentation-type.module';
+import { BankModule } from './bank/bank.module';
+import { SaleModule } from './sale/sale.module';
+import { CreditModule } from './credit/credit.module';
 import { LoggerModule } from './common/logger/logger.module';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 import { LoggerService } from './common/logger/logger.service';
@@ -24,7 +28,11 @@ import { LoggerService } from './common/logger/logger.service';
     CustomerCategoryModule,
     CustomerModule,
     PaymentMethodModule,
+    BankModule,
+    PresentationTypeModule,
     RewardModule,
+    SaleModule,
+    CreditModule,
   ],
   providers: [
     {

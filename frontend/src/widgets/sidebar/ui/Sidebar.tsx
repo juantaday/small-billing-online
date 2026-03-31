@@ -3,43 +3,99 @@
  * Navegación lateral
  */
 
+import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   Package,
   Users,
-  ShoppingCart,
-  BarChart3,
-  Settings,
   FolderOpen,
   ChevronLeft,
   ShoppingBag,
   FileText,
   ShoppingCartIcon,
   PackagePlus,
+  ChevronDown,
 } from 'lucide-react';
 import { ROUTES } from '@/shared/config';
 import { cn } from '@/shared/lib';
+import { useAuth } from '@/features/auth';
+
+interface NavigationItem {
+  name: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
+interface NavigationGroup {
+  key: string;
+  title: string;
+  items: NavigationItem[];
+}
 
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-const navigation = [
-  { name: 'Dashboard', href: ROUTES.DASHBOARD, icon: LayoutDashboard },
-  { name: 'Menú (Ventas)', href: ROUTES.PRODUCTS, icon: ShoppingBag },
-  { name: 'Gestión Productos', href: ROUTES.PRODUCT_MANAGEMENT, icon: PackagePlus },
-  { name: 'Categorías', href: ROUTES.CATEGORIES, icon: Package },
-  { name: 'Clientes', href: ROUTES.CUSTOMERS, icon: Users },
-  { name: 'Categorías Cliente', href: ROUTES.CUSTOMER_CATEGORIES, icon: FolderOpen },
-  { name: 'Órdenes', href: ROUTES.ORDERS, icon: FileText },
-  { name: 'Reportes', href: ROUTES.REPORTS, icon: BarChart3 },
-  { name: 'Configuración', href: ROUTES.SETTINGS, icon: Settings },
+const navigationGroups: NavigationGroup[] = [
+  {
+    key: 'sales',
+    title: 'Ventas',
+    items: [
+      { name: 'Menú (Ventas)', href: ROUTES.PRODUCTS, icon: ShoppingBag },
+      { name: 'Órdenes', href: ROUTES.ORDERS, icon: FileText },
+    ],
+  },
+  {
+    key: 'products',
+    title: 'Productos',
+    items: [
+      { name: 'Gestión Productos', href: ROUTES.PRODUCT_MANAGEMENT, icon: PackagePlus },
+      { name: 'Categorías', href: ROUTES.CATEGORIES, icon: Package },
+      { name: 'Tipos Presentación', href: ROUTES.PRESENTATION_TYPES, icon: Package },
+    ],
+  },
+  {
+    key: 'customers',
+    title: 'Clientes',
+    items: [
+      { name: 'Clientes', href: ROUTES.CUSTOMERS, icon: Users },
+      { name: 'Categorías Cliente', href: ROUTES.CUSTOMER_CATEGORIES, icon: FolderOpen },
+    ],
+  },
+  {
+    key: 'system',
+    title: 'Sistema',
+    items: [
+      { name: 'Dashboard', href: ROUTES.DASHBOARD, icon: LayoutDashboard },
+    ],
+  },
 ];
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const location = useLocation();
+  const { canAccess } = useAuth();
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
+    sales: true,
+    products: true,
+    customers: true,
+    system: true,
+  });
+
+  const visibleGroups = navigationGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => canAccess(item.href)),
+    }))
+    .filter((group) => group.items.length > 0);
+
+  const toggleGroup = (groupKey: string) => {
+    setExpandedGroups((prev) => ({
+      ...prev,
+      [groupKey]: !prev[groupKey],
+    }));
+  };
 
   return (
     <>
@@ -84,33 +140,54 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         </div>
 
         {/* Menú de navegación */}
-        <nav className="flex-1 overflow-y-auto p-4 space-y-1">
-          {navigation.map((item) => {
-            const Icon = item.icon;
-            const isActive = location.pathname === item.href;
-
-            return (
-              <Link
-                key={item.href}
-                to={item.href}
-                className={cn(
-                  'flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors',
-                  'font-medium text-sm',
-                  isActive
-                    ? 'badge-primary'
-                    : 'text-gray-700 dark:text-gray-300 interactive-hover'
-                )}
-                onClick={() => {
-                  if (window.innerWidth < 1024) {
-                    onClose();
-                  }
-                }}
+        <nav className="flex-1 overflow-y-auto p-4 space-y-3">
+          {visibleGroups.map((group) => (
+            <div key={group.key} className="space-y-1">
+              <button
+                onClick={() => toggleGroup(group.key)}
+                className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
               >
-                <Icon className="w-5 h-5" />
-                <span>{item.name}</span>
-              </Link>
-            );
-          })}
+                <span>{group.title}</span>
+                <ChevronDown
+                  className={cn(
+                    'w-4 h-4 transition-transform',
+                    expandedGroups[group.key] ? 'rotate-0' : '-rotate-90',
+                  )}
+                />
+              </button>
+
+              {expandedGroups[group.key] && (
+                <div className="space-y-1">
+                  {group.items.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = location.pathname === item.href;
+
+                    return (
+                      <Link
+                        key={item.href}
+                        to={item.href}
+                        className={cn(
+                          'flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors',
+                          'font-medium text-sm',
+                          isActive
+                            ? 'badge-primary'
+                            : 'text-gray-700 dark:text-gray-300 interactive-hover',
+                        )}
+                        onClick={() => {
+                          if (window.innerWidth < 1024) {
+                            onClose();
+                          }
+                        }}
+                      >
+                        <Icon className="w-5 h-5" />
+                        <span>{item.name}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ))}
         </nav>
 
         {/* Footer del sidebar */}

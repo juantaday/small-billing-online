@@ -22,7 +22,7 @@ class PresentationApi extends BaseApiClient {
     });
   }
 
-  async getById(id: number): Promise<PresentationDto> {
+  async getById(id: string): Promise<PresentationDto> {
     return this.get<PresentationDto>(`/presentations/${id}`);
   }
 
@@ -30,11 +30,11 @@ class PresentationApi extends BaseApiClient {
     return this.post<PresentationDto>('/presentations', data);
   }
 
-  async update(id: number, data: UpdatePresentationDto): Promise<PresentationDto> {
+  async update(id: string, data: UpdatePresentationDto): Promise<PresentationDto> {
     return this.put<PresentationDto>(`/presentations/${id}`, data);
   }
 
-  async delete(id: number): Promise<void> {
+  async delete(id: string): Promise<void> {
     return this.deleteBase<void>(`/presentations/${id}`);
   }
 }

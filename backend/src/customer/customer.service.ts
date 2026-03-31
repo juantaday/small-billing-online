@@ -99,6 +99,95 @@ export class CustomerService {
     };
   }
 
+  async findByUserId(userId: string): Promise<CustomerWithRelationsDto | null> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { peopleId: true },
+    });
+
+    if (!user?.peopleId) {
+      return null;
+    }
+
+    const customer = await prisma.customer.findUnique({
+      where: { peopleId: user.peopleId },
+      include: {
+        people: true,
+        customerCategory: true,
+      },
+    });
+
+    if (!customer) {
+      return null;
+    }
+
+    return {
+      id: customer.id,
+      peopleId: customer.peopleId,
+      customerCategoryId: customer.customerCategoryId,
+      loyaltyPoints: customer.loyaltyPoints,
+      totalPurchases: customer.totalPurchases.toNumber(),
+      lastPurchaseDate: customer.lastPurchaseDate,
+      active: customer.active,
+      createdAt: customer.createdAt,
+      updatedAt: customer.updatedAt,
+      people: customer.people,
+      customerCategory: customer.customerCategory
+        ? {
+            ...customer.customerCategory,
+            discountPercentage: customer.customerCategory.discountPercentage.toNumber(),
+            pointsMultiplier: customer.customerCategory.pointsMultiplier.toNumber(),
+            ticketThreshold: customer.customerCategory.ticketThreshold.toNumber(),
+          }
+        : undefined,
+    };
+  }
+
+  async search(term: string): Promise<CustomerWithRelationsDto[]> {
+    const value = term.trim();
+    if (!value) return [];
+
+    const customers = await prisma.customer.findMany({
+      where: {
+        active: true,
+        people: {
+          OR: [
+            { rucCi: { contains: value, mode: 'insensitive' } },
+            { firstName: { contains: value, mode: 'insensitive' } },
+            { lastName: { contains: value, mode: 'insensitive' } },
+          ],
+        },
+      },
+      include: {
+        people: true,
+        customerCategory: true,
+      },
+      take: 20,
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return customers.map((customer) => ({
+      id: customer.id,
+      peopleId: customer.peopleId,
+      customerCategoryId: customer.customerCategoryId,
+      loyaltyPoints: customer.loyaltyPoints,
+      totalPurchases: customer.totalPurchases.toNumber(),
+      lastPurchaseDate: customer.lastPurchaseDate,
+      active: customer.active,
+      createdAt: customer.createdAt,
+      updatedAt: customer.updatedAt,
+      people: customer.people,
+      customerCategory: customer.customerCategory
+        ? {
+            ...customer.customerCategory,
+            discountPercentage: customer.customerCategory.discountPercentage.toNumber(),
+            pointsMultiplier: customer.customerCategory.pointsMultiplier.toNumber(),
+            ticketThreshold: customer.customerCategory.ticketThreshold.toNumber(),
+          }
+        : undefined,
+    }));
+  }
+
   async create(data: CreateCustomerDto): Promise<CustomerDto> {
     this.logger.log(`Creando cliente: ${data.people.firstName} ${data.people.lastName || ''}`, 'CustomerService');
     

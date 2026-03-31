@@ -46,6 +46,12 @@ enum RewardType {
   COUPON // Cupón especial
 }
 
+enum TaxDefaultGroup {
+  IVA
+  ICE
+  IRBPNR
+}
+
 // ==================== MODELS ====================
 
 model People {
@@ -91,6 +97,9 @@ model User {
   peopleId String? @unique @map("people_id")
   people   People? @relation(fields: [peopleId], references: [id])
 
+  // Relaciones
+  sales Sale[]
+
   @@map("users")
 }
 
@@ -119,6 +128,7 @@ model Customer {
 
   // Relaciones
   loyaltyTransactions LoyaltyTransaction[]
+  sales               Sale[]
 
   @@map("customers")
 }
@@ -238,6 +248,7 @@ model Product {
   images        ProductImage[]
   presentations Presentation[] @relation("ProductPresentations")
   productTaxes  ProductTax[]
+  productStock  ProductStock?
 
   // Relaciones con presentaciones por defecto
   defaultPurchasePresentation Presentation? @relation("DefaultPurchasePresentation", fields: [defaultPurchasePresentationId], references: [id], onDelete: SetNull)
@@ -263,14 +274,37 @@ model ProductImage {
   @@map("product_images")
 }
 
+model PresentationType {
+  id   String @id @default(cuid())
+  name String @unique @db.VarChar(35) // "Unidad", "Docena", "Bulto", etc
+
+  active Boolean @default(true)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relaciones
+  presentations Presentation[]
+  stockConfigurations ProductStock[]
+
+  @@map("presentation_types")
+}
+
 
 model Presentation {
   id        String  @id @default(cuid())
   productId String  @map("product_id")
   product   Product @relation("ProductPresentations", fields: [productId], references: [id], onDelete: Cascade)
 
-  name     String  @db.VarChar(100) // "Unidad", "x6", "Docena"
-  quantity Int // Cantidad de unidades en esta presentación
+  presentationTypeId String           @map("presentation_type_id")
+  presentationType   PresentationType @relation(fields: [presentationTypeId], references: [id])
+
+  // Referencia a la presentación base/componente de este producto
+  presentationInferenceId String?       @map("presentation_inference")
+  presentationInference   Presentation? @relation("PresentationInference", fields: [presentationInferenceId], references: [id], onDelete: Restrict)
+  inferredPresentations   Presentation[] @relation("PresentationInference")
+
+  quantity Int // Cantidad de la presentación de referencia (ej: balde = 12 unidades)
   barcode  String? @db.VarChar(50) // Nullable porque no todos los productos tienen código de barras
 
   @@unique([barcode]) // Solo si tiene valor debe ser único
@@ -281,22 +315,40 @@ model Presentation {
   averageCostPrice Decimal? @map("average_cost_price") @db.Decimal(10, 2) // Costo promedio
   salePrice        Decimal  @map("sale_price") @db.Decimal(10, 2)
 
-  // Inventario
-  stock    Int  @default(0)
-  minStock Int? @default(0) @map("min_stock") // Stock mínimo
-  maxStock Int? @map("max_stock") // Stock máximo
-
   active Boolean @default(true)
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relaciones
-  rewards                        Reward[]  @relation("PresentationRewards")
-  defaultForPurchaseInProducts   Product[] @relation("DefaultPurchasePresentation")
-  defaultForSaleInProducts       Product[] @relation("DefaultSalePresentation")
+  rewards                        Reward[]         @relation("PresentationRewards")
+  defaultForPurchaseInProducts   Product[]        @relation("DefaultPurchasePresentation")
+  defaultForSaleInProducts       Product[]        @relation("DefaultSalePresentation")
+  saleDetails                    SaleDetail[]
+  saleProductTaxes               SaleProductTax[]
 
   @@map("presentations")
+}
+
+// Stock unificado por producto (base de descuento en ventas)
+model ProductStock {
+  id       String  @id @default(cuid())
+  productId String @unique @map("product_id")
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  // Presentación en la que se visualiza el stock
+  stockPresentationTypeId String           @map("stock_presentation_type_id")
+  stockPresentationType   PresentationType @relation(fields: [stockPresentationTypeId], references: [id])
+
+  // Stock real en unidades base del producto
+  stock    Int  @default(0)
+  minStock Int  @default(0) @map("min_stock")
+  maxStock Int? @map("max_stock")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("product_stocks")
 }
 
 // ==================== PAYMENT METHODS ====================
@@ -364,9 +416,27 @@ model TaxValue {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relaciones
-  productTaxes ProductTax[]
+  productTaxes     ProductTax[]
+  productDefaults  ProductTaxDefault[]
 
   @@map("tax_values")
+}
+
+// Configuración de impuestos por defecto para nuevos productos
+model ProductTaxDefault {
+  id String @id @default(cuid())
+
+  taxGroup     TaxDefaultGroup @map("tax_group")
+  taxValueCode String          @map("tax_value_code") @db.VarChar(255)
+  taxValue     TaxValue        @relation(fields: [taxValueCode], references: [code], onDelete: Restrict)
+
+  active Boolean @default(true)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([taxGroup])
+  @@map("product_tax_defaults")
 }
 
 // Vinculación de productos con tasas de impuestos
@@ -379,7 +449,7 @@ model ProductTax {
   taxValue TaxValue @relation(fields: [taxValueCode], references: [code], onDelete: Cascade)
 
   // Permite override del porcentaje para este producto específico
-  customPercent    Decimal? @map("custom_percent") @db.Decimal(5, 4)
+  appliedRate      Decimal  @default(0) @map("applied_rate") @db.Decimal(5, 4)
   isDefaultVat     Boolean  @default(false) @map("is_default_vat") // Si es el IVA por defecto
   active           Boolean  @default(true)
 
@@ -388,4 +458,227 @@ model ProductTax {
 
   @@unique([productId, taxValueCode])
   @@map("product_taxes")
+}
+
+// ==================== SALES & BILLING ====================
+
+enum PaymentMethodType {
+  CASH // Efectivo
+  TRANSFER // Transferencia bancaria
+  CARD // Tarjeta de débito/crédito
+  CREDIT // Venta a crédito
+}
+
+enum CardType {
+  VISA
+  MASTERCARD
+  AMERICAN_EXPRESS
+  DINERS_CLUB
+  DISCOVER
+  OTHER
+}
+
+enum SaleStatus {
+  PENDING // En proceso
+  COMPLETED // Completada y pagada
+  CANCELLED // Cancelada/anulada
+  CREDIT // A crédito (pendiente de pago)
+  PARTIAL_PAYMENT // Crédito con pago parcial
+}
+
+// Catálogo de bancos para transferencias
+model Bank {
+  id   String  @id @default(cuid())
+  code String  @unique @db.VarChar(10) // Código del banco (ej: "001", "002")
+  name String  @db.VarChar(150)
+  active Boolean @default(true)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relaciones
+  salePayments SalePayment[]
+  creditPayments CreditPayment[]
+
+  @@map("banks")
+}
+
+// Control de secuenciales de factura (formato SRI: establecimiento-punto-secuencial)
+model InvoiceSequence {
+  id             String @id @default(cuid())
+  establishment  String @db.VarChar(3) // "001", "002", etc.
+  pointOfSale    String @map("point_of_sale") @db.VarChar(3) // "001", "002", etc.
+  lastSequential Int    @default(0) @map("last_sequential") // Último número usado
+  
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([establishment, pointOfSale])
+  @@map("invoice_sequences")
+}
+
+// Venta/Factura principal
+model Sale {
+  id            String     @id @default(cuid())
+  invoiceNumber String     @unique @map("invoice_number") @db.VarChar(17) // 001-001-000000001
+  
+  // Cliente
+  customerId String   @map("customer_id")
+  customer   Customer @relation(fields: [customerId], references: [id])
+
+  // Usuario que registra la venta
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id])
+
+  // Montos
+  subtotal     Decimal @db.Decimal(10, 2) // Subtotal sin impuestos
+  taxAmount    Decimal @map("tax_amount") @db.Decimal(10, 2) // Total de impuestos
+  total        Decimal @db.Decimal(10, 2) // Total a pagar
+  discount     Decimal @default(0) @db.Decimal(10, 2) // Descuentos aplicados
+  
+  // Estado y fechas
+  status    SaleStatus
+  saleDate  DateTime   @default(now()) @map("sale_date")
+  
+  // Notas
+  notes String? @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relaciones
+  details        SaleDetail[]
+  payments       SalePayment[]
+  productTaxes   SaleProductTax[]
+  credit         Credit?
+
+  @@map("sales")
+}
+
+// Detalle de productos en la venta
+model SaleDetail {
+  id     String @id @default(cuid())
+  saleId String @map("sale_id")
+  sale   Sale   @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  // Producto y presentación
+  presentationId String       @map("presentation_id")
+  presentation   Presentation @relation(fields: [presentationId], references: [id])
+
+  // Snapshot de datos en el momento de la venta
+  productName      String  @map("product_name") @db.VarChar(100)
+  presentationName String  @map("presentation_name") @db.VarChar(100)
+  
+  // Cantidades y precios
+  quantity  Int
+  unitPrice Decimal @map("unit_price") @db.Decimal(10, 2) // Precio unitario al momento de la venta
+  subtotal  Decimal @db.Decimal(10, 2) // quantity * unitPrice
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("sale_details")
+}
+
+// Impuestos calculados por producto en la venta
+model SaleProductTax {
+  id     String @id @default(cuid())
+  saleId String @map("sale_id")
+  sale   Sale   @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  presentationId String       @map("presentation_id")
+  presentation   Presentation @relation(fields: [presentationId], references: [id])
+
+  // Snapshot del impuesto aplicado
+  taxCode        String  @map("tax_code") @db.VarChar(10) // Código del impuesto
+  taxDescription String  @map("tax_description") @db.VarChar(255)
+  taxPercentage  Decimal @map("tax_percentage") @db.Decimal(5, 2) // Porcentaje aplicado
+  taxableAmount  Decimal @map("taxable_amount") @db.Decimal(10, 2) // Base imponible
+  taxAmount      Decimal @map("tax_amount") @db.Decimal(10, 2) // Monto del impuesto
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("sale_product_taxes")
+}
+
+// Métodos de pago aplicados a una venta (puede ser múltiple para pagos mixtos)
+model SalePayment {
+  id     String @id @default(cuid())
+  saleId String @map("sale_id")
+  sale   Sale   @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  paymentType PaymentMethodType @map("payment_type")
+  amount      Decimal           @db.Decimal(10, 2)
+
+  // CASH - Efectivo
+  cashReceived Decimal? @map("cash_received") @db.Decimal(10, 2) // Monto recibido
+  change       Decimal? @db.Decimal(10, 2) // Vuelto
+
+  // TRANSFER - Transferencia
+  bankId            String? @map("bank_id")
+  bank              Bank?   @relation(fields: [bankId], references: [id])
+  bankAccount       String? @map("bank_account") @db.VarChar(50)
+  transferReference String? @map("transfer_reference") @db.VarChar(100)
+
+  // CARD - Tarjeta
+  cardType      CardType? @map("card_type")
+  voucherNumber String?   @map("voucher_number") @db.VarChar(100)
+
+  // Notas adicionales
+  notes String? @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("sale_payments")
+}
+
+// Registro de créditos (cuentas por cobrar)
+model Credit {
+  id     String @id @default(cuid())
+  saleId String @unique @map("sale_id")
+  sale   Sale   @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  // Montos
+  totalAmount Decimal @map("total_amount") @db.Decimal(10, 2) // Monto total del crédito
+  paidAmount  Decimal @default(0) @map("paid_amount") @db.Decimal(10, 2) // Monto pagado
+  balance     Decimal @db.Decimal(10, 2) // Saldo pendiente
+
+  // Fechas
+  dueDate DateTime? @map("due_date") // Fecha de vencimiento (opcional)
+  paidDate DateTime? @map("paid_date") // Fecha de pago completo
+
+  // Estado
+  isPaid Boolean @default(false) @map("is_paid")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relaciones
+  payments CreditPayment[]
+
+  @@map("credits")
+}
+
+// Abonos a créditos
+model CreditPayment {
+  id       String @id @default(cuid())
+  creditId String @map("credit_id")
+  credit   Credit @relation(fields: [creditId], references: [id], onDelete: Cascade)
+
+  amount        Decimal           @db.Decimal(10, 2)
+  paymentType   PaymentMethodType @map("payment_type")
+  paymentDate   DateTime          @default(now()) @map("payment_date")
+
+  // Documentos de pago (igual que SalePayment)
+  bankId            String?   @map("bank_id")
+  bank              Bank?     @relation(fields: [bankId], references: [id])
+  bankAccount       String?   @map("bank_account") @db.VarChar(50)
+  transferReference String?   @map("transfer_reference") @db.VarChar(100)
+  cardType          CardType? @map("card_type")
+  voucherNumber     String?   @map("voucher_number") @db.VarChar(100)
+
+  notes String? @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("credit_payments")
 }

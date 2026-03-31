@@ -5,6 +5,7 @@
 
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '@/features/auth';
+import type { AppRole } from '@/features/auth';
 import { MainLayout } from '../layouts/MainLayout';
 import { ROUTES } from '@/shared/config';
 import { CartWidget } from '@/widgets/cart-widget';
@@ -13,14 +14,30 @@ import { DashboardPage } from '@/pages/DashboardPage';
 import { ProductsPage } from '@/pages/ProductsPage';
 import { ProductManagementPage } from '@/pages/ProductManagementPage';
 import { CustomersPage } from '@/pages/CustomersPage';
-import {CategoriesPage} from '@/pages/CategoriesPage';
+import { CategoriesPage } from '@/pages/CategoriesPage';
 import { OrdersPage } from '@/pages/OrdersPage';
 import CustomerCategoriesPage from '@/pages/CustomerCategoriesPage';
+import { PresentationTypesPage } from '@/pages/PresentationTypesPage';
 import { Register } from '@/pages/Register';
 
-function PrivateRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuth();
-  return isAuthenticated ? <>{children}</> : <Navigate to={ROUTES.LOGIN} />;
+function PrivateRoute({
+  children,
+  allowedRoles,
+}: {
+  children: React.ReactNode;
+  allowedRoles?: AppRole[];
+}) {
+  const { isAuthenticated, role } = useAuth();
+
+  if (!isAuthenticated) {
+    return <Navigate to={ROUTES.LOGIN} />;
+  }
+
+  if (allowedRoles && !allowedRoles.includes(role)) {
+    return <Navigate to={ROUTES.DASHBOARD} />;
+  }
+
+  return <>{children}</>;
 }
 
 export function AppRoutes() {
@@ -64,7 +81,7 @@ export function AppRoutes() {
         <Route
           path={ROUTES.PRODUCTS}
           element={
-            <PrivateRoute>
+            <PrivateRoute allowedRoles={['Admin', 'SaleManager', 'Cajero', 'User', 'Customer']}>
               <MainLayout>
                 <ProductsPage />
               </MainLayout>
@@ -74,7 +91,7 @@ export function AppRoutes() {
         <Route
           path={ROUTES.PRODUCT_MANAGEMENT}
           element={
-            <PrivateRoute>
+            <PrivateRoute allowedRoles={['Admin', 'SaleManager']}>
               <MainLayout>
                 <ProductManagementPage />
               </MainLayout>
@@ -84,7 +101,7 @@ export function AppRoutes() {
         <Route
           path={ROUTES.CUSTOMERS}
           element={
-            <PrivateRoute>
+            <PrivateRoute allowedRoles={['Admin', 'SaleManager', 'Cajero']}>
               <MainLayout>
                 <CustomersPage />
               </MainLayout>
@@ -94,7 +111,7 @@ export function AppRoutes() {
         <Route
           path={ROUTES.CATEGORIES}
           element={
-            <PrivateRoute>
+            <PrivateRoute allowedRoles={['Admin', 'SaleManager']}>
               <MainLayout>
                 <CategoriesPage />
               </MainLayout>
@@ -102,9 +119,19 @@ export function AppRoutes() {
           }
         />
         <Route
+          path={ROUTES.PRESENTATION_TYPES}
+          element={
+            <PrivateRoute allowedRoles={['Admin', 'SaleManager']}>
+              <MainLayout>
+                <PresentationTypesPage />
+              </MainLayout>
+            </PrivateRoute>
+          }
+        />
+        <Route
           path={ROUTES.CUSTOMER_CATEGORIES}
           element={
-            <PrivateRoute>
+            <PrivateRoute allowedRoles={['Admin', 'SaleManager']}>
               <MainLayout>
                 <CustomerCategoriesPage />
               </MainLayout>
@@ -114,7 +141,7 @@ export function AppRoutes() {
         <Route
           path={ROUTES.ORDERS}
           element={
-            <PrivateRoute>
+            <PrivateRoute allowedRoles={['Admin', 'SaleManager', 'Cajero', 'User', 'Customer']}>
               <MainLayout>
                 <OrdersPage />
               </MainLayout>

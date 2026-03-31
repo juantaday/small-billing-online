@@ -25,6 +25,16 @@ class CustomerApi extends BaseApiClient {
     return this.get<CustomerWithRelationsDto>(`/customers/${id}`);
   }
 
+  async search(term: string): Promise<CustomerWithRelationsDto[]> {
+    return this.get<CustomerWithRelationsDto[]>('/customers/search', {
+      params: { q: term },
+    });
+  }
+
+  async getByUserId(userId: string): Promise<CustomerWithRelationsDto | null> {
+    return this.get<CustomerWithRelationsDto | null>(`/customers/by-user/${userId}`);
+  }
+
   async create(data: CreateCustomerDto): Promise<CustomerDto> {
     return this.post<CustomerDto>('/customers', data);
   }

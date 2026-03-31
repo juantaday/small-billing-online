@@ -1,11 +1,9 @@
 import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { CreateUserDto, LoginDto, UserDto } from '@small-billing/shared';
 import { LoggerService } from '../common/logger/logger.service';
-
-const prisma = new PrismaClient();
+import { prisma } from '../../prisma/client';
 
 @Injectable()
 export class AuthService {

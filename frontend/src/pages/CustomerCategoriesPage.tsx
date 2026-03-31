@@ -104,7 +104,10 @@ const CustomerCategoriesPage = () => {
 
     try {
       if (editingCategory) {
-        await customerCategoryApi.update(editingCategory.id, formData);
+        await customerCategoryApi.update(editingCategory.id, {
+          ...formData,
+          id: editingCategory.id,
+        });
       } else {
         await customerCategoryApi.create(formData);
       }
