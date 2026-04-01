@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
 import {
   CreateCustomerDto,
   CustomerDto,
@@ -7,15 +6,18 @@ import {
   CustomerWithRelationsDto,
 } from '@small-billing/shared';
 import { LoggerService } from '../common/logger/logger.service';
+import { PrismaService } from '../prisma/prisma.service';
 
-const prisma = new PrismaClient();
 
 @Injectable()
 export class CustomerService {
-  constructor(private readonly logger: LoggerService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly logger: LoggerService,
+  ) {}
 
   async findAll(): Promise<CustomerWithRelationsDto[]> {
-    const customers = await prisma.customer.findMany({
+    const customers = await this.prisma.customer.findMany({
       where: { active: true },
       include: {
         people: true,
@@ -45,7 +47,7 @@ export class CustomerService {
   }
 
   async findOne(id: string): Promise<CustomerWithRelationsDto | null> {
-    const customer = await prisma.customer.findUnique({
+    const customer = await this.prisma.customer.findUnique({
       where: { id },
       include: {
         people: true,
@@ -80,7 +82,7 @@ export class CustomerService {
   }
 
   async findByPeople(peopleId: string): Promise<CustomerDto | null> {
-    const customer = await prisma.customer.findUnique({
+    const customer = await this.prisma.customer.findUnique({
       where: { peopleId },
     });
 
@@ -100,7 +102,7 @@ export class CustomerService {
   }
 
   async findByUserId(userId: string): Promise<CustomerWithRelationsDto | null> {
-    const user = await prisma.user.findUnique({
+    const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { peopleId: true },
     });
@@ -109,7 +111,7 @@ export class CustomerService {
       return null;
     }
 
-    const customer = await prisma.customer.findUnique({
+    const customer = await this.prisma.customer.findUnique({
       where: { peopleId: user.peopleId },
       include: {
         people: true,
@@ -147,7 +149,7 @@ export class CustomerService {
     const value = term.trim();
     if (!value) return [];
 
-    const customers = await prisma.customer.findMany({
+    const customers = await this.prisma.customer.findMany({
       where: {
         active: true,
         people: {
@@ -195,7 +197,7 @@ export class CustomerService {
     let existingPeople = null;
     
     if (data.people.rucCi) {
-      existingPeople = await prisma.people.findUnique({
+      existingPeople = await this.prisma.people.findUnique({
         where: { rucCi: data.people.rucCi },
         include: { 
           customer: {
@@ -209,7 +211,7 @@ export class CustomerService {
 
     // Si no encontró por rucCi y hay email, buscar por email
     if (!existingPeople && data.people.mainEmail) {
-      existingPeople = await prisma.people.findUnique({
+      existingPeople = await this.prisma.people.findUnique({
         where: { mainEmail: data.people.mainEmail },
         include: { 
           customer: {
@@ -271,7 +273,7 @@ export class CustomerService {
       peopleId = existingPeople.id;
       
       // Actualizar los datos de People con la nueva información (opcional)
-      await prisma.people.update({
+      await this.prisma.people.update({
         where: { id: peopleId },
         data: {
           firstName: data.people.firstName,
@@ -286,7 +288,7 @@ export class CustomerService {
       });
     } else {
       // 4. Si NO existe, crear nuevo People
-      const newPeople = await prisma.people.create({
+      const newPeople = await this.prisma.people.create({
         data: {
           firstName: data.people.firstName,
           lastName: data.people.lastName,
@@ -303,7 +305,7 @@ export class CustomerService {
     }
 
     // 5. Crear el Customer con valores iniciales en cero
-    const customer = await prisma.customer.create({
+    const customer = await this.prisma.customer.create({
       data: {
         peopleId,
         customerCategoryId: data.customerCategoryId,
@@ -334,7 +336,7 @@ export class CustomerService {
   async update(id: string, data: UpdateCustomerDto): Promise<CustomerDto> {
     this.logger.log(`Actualizando cliente: ${id}`, 'CustomerService');
     // Primero obtener el customer para acceder al peopleId
-    const existingCustomer = await prisma.customer.findUnique({
+    const existingCustomer = await this.prisma.customer.findUnique({
       where: { id },
       include: { people: true },
     });
@@ -357,7 +359,7 @@ export class CustomerService {
       if (data.people.personType !== undefined) peopleUpdateData.personType = data.people.personType;
       if (data.people.identityType !== undefined) peopleUpdateData.identityType = data.people.identityType;
       
-      await prisma.people.update({
+      await this.prisma.people.update({
         where: { id: existingCustomer.peopleId },
         data: peopleUpdateData,
       });
@@ -365,7 +367,7 @@ export class CustomerService {
 
     // Luego actualizar el customer (sin incluir people en data)
     const { people: _, ...customerData } = data;
-    const customer = await prisma.customer.update({
+    const customer = await this.prisma.customer.update({
       where: { id },
       data: customerData,
     });
@@ -387,7 +389,7 @@ export class CustomerService {
   }
 
   async getTopCustomers(limit: number): Promise<CustomerWithRelationsDto[]> {
-    const customers = await prisma.customer.findMany({
+    const customers = await this.prisma.customer.findMany({
       where: { active: true },
       include: {
         people: true,
@@ -421,7 +423,7 @@ export class CustomerService {
   }
 
   async updatePoints(id: string, points: number): Promise<CustomerDto> {
-    const customer = await prisma.customer.update({
+    const customer = await this.prisma.customer.update({
       where: { id },
       data: {
         loyaltyPoints: points,
@@ -443,7 +445,7 @@ export class CustomerService {
 
   async delete(id: string): Promise<CustomerDto> {
     // Soft delete: marcar como inactivo en lugar de eliminar
-    const customer = await prisma.customer.update({
+    const customer = await this.prisma.customer.update({
       where: { id },
       data: {
         active: false,

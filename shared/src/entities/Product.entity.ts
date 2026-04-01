@@ -7,6 +7,8 @@ export interface CreateProductDto {
   slug: string;
   shortDescription?: string; // Descripción breve para menú
   longDescription?: string; // Descripción completa con detalles
+  defaultPurchasePresentationId?: string | null;
+  defaultSalePresentationId?: string | null;
   selectedTaxes?: ProductTaxSelectionDto[];
   active?: boolean;
   featured?: boolean;
@@ -34,4 +36,28 @@ export interface ProductWithRelationsDto extends ProductDto {
   presentations?: any[]; // PresentationDto[]
   productStock?: any; // ProductStockDto
   productTaxes?: ProductTaxSelectionDto[];
+}
+
+// DTO para presentación en contexto de wizard/finalize
+export interface FinalizeProductWizardPresentationDto {
+  id?: string; // undefined si es nueva, string si es edición
+  presentationTypeId: string;
+  presentationInferenceId?: string | null;
+  presentationInferenceTypeId?: string | null;
+  quantity: number;
+  barcode?: string | null;
+  costPrice: number;
+  salePrice: number;
+  active?: boolean;
+}
+
+// DTO para finalizar wizard de producto (operación atómica)
+export interface FinalizeProductWizardDto {
+  // Datos del producto
+  product: UpdateProductDto;
+  // Array de presentaciones (crear, actualizar, eliminar)
+  presentations: FinalizeProductWizardPresentationDto[];
+  // Índices en el array para definir presentaciones por defecto
+  defaultPurchasePresentationIndex: number | null;
+  defaultSalePresentationIndex: number | null;
 }

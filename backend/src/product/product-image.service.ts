@@ -4,20 +4,21 @@
  */
 
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
 import {
   CreateProductImageDto,
   UpdateProductImageDto,
   ReorderImagesDto,
 } from '@small-billing/shared';
+import { PrismaService } from '../prisma/prisma.service';
 
-const prisma = new PrismaClient();
 
 // Tipo auxiliar para crear imagen (sin productId que viene por parámetro)
 type CreateImageInput = Omit<CreateProductImageDto, 'productId'>;
 
 @Injectable()
 export class ProductImageService {
+  constructor(private readonly prisma: PrismaService) {}
+
 
   /**
    * Obtener todas las imágenes de un producto
@@ -26,7 +27,7 @@ export class ProductImageService {
     // Verificar que el producto existe
     await this.validateProductExists(productId);
 
-    return prisma.productImage.findMany({
+    return this.prisma.productImage.findMany({
       where: { productId },
       orderBy: { displayOrder: 'asc' },
     });
@@ -36,7 +37,7 @@ export class ProductImageService {
    * Obtener una imagen específica
    */
   async findOne(imageId: string) {
-    const image = await prisma.productImage.findUnique({
+    const image = await this.prisma.productImage.findUnique({
       where: { id: imageId },
     });
 
@@ -55,7 +56,7 @@ export class ProductImageService {
     await this.validateProductExists(productId);
 
     // Contar imágenes existentes
-    const imageCount = await prisma.productImage.count({
+    const imageCount = await this.prisma.productImage.count({
       where: { productId },
     });
 
@@ -68,7 +69,7 @@ export class ProductImageService {
     }
 
     // Crear la imagen
-    return prisma.productImage.create({
+    return this.prisma.productImage.create({
       data: {
         productId,
         imageUrl: createDto.imageUrl,
@@ -90,7 +91,7 @@ export class ProductImageService {
       await this.setPrimaryInternal(image.productId, imageId);
     }
 
-    return prisma.productImage.update({
+    return this.prisma.productImage.update({
       where: { id: imageId },
       data: updateDto,
     });
@@ -103,19 +104,19 @@ export class ProductImageService {
     const image = await this.findOne(imageId);
 
     // Eliminar la imagen
-    await prisma.productImage.delete({
+    await this.prisma.productImage.delete({
       where: { id: imageId },
     });
 
     // Si era primaria, establecer otra como primaria
     if (image.isPrimary) {
-      const nextImage = await prisma.productImage.findFirst({
+      const nextImage = await this.prisma.productImage.findFirst({
         where: { productId: image.productId },
         orderBy: { displayOrder: 'asc' },
       });
 
       if (nextImage) {
-        await prisma.productImage.update({
+        await this.prisma.productImage.update({
           where: { id: nextImage.id },
           data: { isPrimary: true },
         });
@@ -130,7 +131,7 @@ export class ProductImageService {
    */
   async setPrimary(productId: string, imageId: string) {
     // Verificar que la imagen existe y pertenece al producto
-    const image = await prisma.productImage.findFirst({
+    const image = await this.prisma.productImage.findFirst({
       where: { id: imageId, productId },
     });
 
@@ -144,7 +145,7 @@ export class ProductImageService {
     await this.setPrimaryInternal(productId, imageId);
 
     // Marcar la seleccionada como primaria
-    return prisma.productImage.update({
+    return this.prisma.productImage.update({
       where: { id: imageId },
       data: { isPrimary: true },
     });
@@ -159,7 +160,7 @@ export class ProductImageService {
 
     // Verificar que todas las imágenes pertenecen al producto
     const imageIds = reorderDto.order.map((item) => item.imageId);
-    const images = await prisma.productImage.findMany({
+    const images = await this.prisma.productImage.findMany({
       where: {
         id: { in: imageIds },
         productId,
@@ -173,9 +174,9 @@ export class ProductImageService {
     }
 
     // Actualizar el orden en una transacción
-    await prisma.$transaction(
+    await this.prisma.$transaction(
       reorderDto.order.map((item) =>
-        prisma.productImage.update({
+        this.prisma.productImage.update({
           where: { id: item.imageId },
           data: { displayOrder: item.displayOrder },
         }),
@@ -193,7 +194,7 @@ export class ProductImageService {
    * excepto la especificada
    */
   private async setPrimaryInternal(productId: string, exceptImageId: string | null) {
-    await prisma.productImage.updateMany({
+    await this.prisma.productImage.updateMany({
       where: {
         productId,
         ...(exceptImageId ? { id: { not: exceptImageId } } : {}),
@@ -206,7 +207,7 @@ export class ProductImageService {
    * Validar que un producto existe
    */
   private async validateProductExists(productId: string) {
-    const product = await prisma.product.findUnique({
+    const product = await this.prisma.product.findUnique({
       where: { id: productId },
     });
 

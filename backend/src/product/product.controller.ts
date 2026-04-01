@@ -1,8 +1,24 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, Patch, UseInterceptors, UploadedFile, BadRequestException, Req } from '@nestjs/common';
+import * as fs from 'fs';
+import * as path from 'path';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Query,
+  Patch,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
+  NotFoundException,
+  Req,
+} from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ProductService } from './product.service';
 import { ProductImageService } from './product-image.service';
-import { LoggerService } from '../common/logger/logger.service';
 import {
   CreateProductDto,
   ProductDto,
@@ -11,10 +27,12 @@ import {
   CreateProductImageDto,
   UpdateProductImageDto,
   ReorderImagesDto,
+  FinalizeProductWizardDto,
 } from '@small-billing/shared';
 
 interface HttpRequestLike {
   protocol: string;
+  headers: Record<string, string | string[] | undefined>;
   get(name: string): string | undefined;
 }
 
@@ -28,11 +46,14 @@ export class ProductController {
   constructor(
     private readonly productService: ProductService,
     private readonly productImageService: ProductImageService,
-    private readonly logger: LoggerService
   ) {}
 
+  // ─── Productos ───────────────────────────────────────────────────────────────
+
   @Get()
-  async findAll(@Query('categoryId') categoryId?: string): Promise<ProductWithRelationsDto[]> {
+  async findAll(
+    @Query('categoryId') categoryId?: string,
+  ): Promise<ProductWithRelationsDto[]> {
     if (categoryId) {
       return this.productService.findByCategory(categoryId);
     }
@@ -46,12 +67,24 @@ export class ProductController {
 
   @Get('slug/:slug')
   async findBySlug(@Param('slug') slug: string): Promise<ProductWithRelationsDto> {
-    return this.productService.findBySlug(slug);
+    const product = await this.productService.findBySlug(slug);
+    if (!product) {
+      throw new NotFoundException(`Producto con slug "${slug}" no encontrado`);
+    }
+    return product;
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string): Promise<ProductWithRelationsDto> {
-    return this.productService.findOne(id);
+  async findOne(
+    @Param('id') id: string,
+    @Query('light') light?: string,
+  ): Promise<ProductWithRelationsDto> {
+    const useLightMode = light === '1' || light === 'true';
+    const product = await this.productService.findOne(id, { light: useLightMode });
+    if (!product) {
+      throw new NotFoundException(`Producto con id "${id}" no encontrado`);
+    }
+    return product;
   }
 
   @Post()
@@ -67,16 +100,27 @@ export class ProductController {
     return this.productService.update(id, data);
   }
 
+  @Put(':id/finalize')
+  async finalizeWizard(
+    @Param('id') id: string,
+    @Body() body: FinalizeProductWizardDto,
+  ): Promise<ProductDto> {
+    return this.productService.finalizeWizard(id, body);
+  }
+
   @Delete(':id')
   async delete(@Param('id') id: string): Promise<ProductDto> {
     return this.productService.delete(id);
   }
 
-  // ==================== IMAGE MANAGEMENT ENDPOINTS ====================
+  @Delete(':id/discard-draft')
+  async discardDraft(@Param('id') id: string): Promise<{ success: boolean; hardDeleted: boolean }> {
+    return this.productService.discardDraft(id);
+  }
 
-  /**
-   * Reordenar las imágenes de un producto (DEBE ir antes de :productId/images)
-   */
+  // ─── Imágenes ────────────────────────────────────────────────────────────────
+
+  /** Reordenar imágenes — DEBE ir antes de :productId/images */
   @Patch(':productId/images/reorder')
   async reorderImages(
     @Param('productId') productId: string,
@@ -85,9 +129,7 @@ export class ProductController {
     return this.productImageService.reorder(productId, dto);
   }
 
-  /**
-   * Subir una nueva imagen para un producto (DEBE ir antes de :productId/images)
-   */
+  /** Subir imagen — DEBE ir antes de :productId/images */
   @Post(':productId/images/upload')
   @UseInterceptors(FileInterceptor('file'))
   async uploadImage(
@@ -98,41 +140,33 @@ export class ProductController {
     @Body('displayOrder') displayOrder?: string,
   ) {
     if (!file) {
-      throw new BadRequestException('No se proporcionó ningún arquivo');
+      throw new BadRequestException('No se proporcionó ningún archivo');
     }
 
-    // Guardar el archivo temporalmente en el servidor (public/uploads)
-    const fs = require('fs');
-    const path = require('path');
-    
-    // Crear directorio si no existe
     const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'products');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
+    await fs.promises.mkdir(uploadDir, { recursive: true });
 
-    // Generar nombre único para el archivo
     const fileExt = path.extname(file.originalname);
     const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}${fileExt}`;
     const filePath = path.join(uploadDir, fileName);
-    
-    // Guardar el archivo
-    fs.writeFileSync(filePath, file.buffer);
-    
-    // URL accesible desde el frontend usando host actual del backend
-    const imageUrl = `${req.protocol}://${req.get('host')}/uploads/products/${fileName}`;
-    
-    // Crear el registro en la base de datos
+
+    await fs.promises.writeFile(filePath, file.buffer);
+
+    // Respeta X-Forwarded-Proto cuando hay un reverse proxy (nginx, Render, etc.)
+    const protocol =
+      (req.get('x-forwarded-proto') as string | undefined)?.split(',')[0].trim() ??
+      req.protocol;
+    const host = req.get('host');
+    const imageUrl = `${protocol}://${host}/uploads/products/${fileName}`;
+
     return this.productImageService.create(productId, {
       imageUrl,
       altText: altText || file.originalname,
-      displayOrder: displayOrder ? parseInt(displayOrder) : 0,
+      displayOrder: displayOrder ? parseInt(displayOrder, 10) : 0,
     });
   }
 
-  /**
-   * Establecer una imagen como primaria
-   */
+  /** Establecer imagen primaria */
   @Patch(':productId/images/:imageId/primary')
   async setPrimaryImage(
     @Param('productId') productId: string,
@@ -141,9 +175,7 @@ export class ProductController {
     return this.productImageService.setPrimary(productId, imageId);
   }
 
-  /**
-   * Eliminar una imagen
-   */
+  /** Eliminar imagen */
   @Delete(':productId/images/:imageId')
   async deleteImage(
     @Param('productId') productId: string,
@@ -152,9 +184,7 @@ export class ProductController {
     return this.productImageService.remove(imageId);
   }
 
-  /**
-   * Actualizar una imagen existente
-   */
+  /** Actualizar imagen existente */
   @Patch(':productId/images/:imageId')
   async updateImage(
     @Param('productId') productId: string,
@@ -164,9 +194,7 @@ export class ProductController {
     return this.productImageService.update(imageId, dto);
   }
 
-  /**
-   * Crear una imagen con URL (sin upload de archivo)
-   */
+  /** Crear imagen con URL (sin upload) */
   @Post(':productId/images')
   async createImage(
     @Param('productId') productId: string,
@@ -175,9 +203,7 @@ export class ProductController {
     return this.productImageService.create(productId, dto);
   }
 
-  /**
-   * Obtener todas las imágenes de un producto (DEBE ir al final)
-   */
+  /** Listar imágenes de un producto — DEBE ir al final */
   @Get(':productId/images')
   async getImages(@Param('productId') productId: string) {
     return this.productImageService.findByProductId(productId);

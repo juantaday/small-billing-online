@@ -88,7 +88,9 @@ export class LoggerService implements NestLoggerService {
 
   log(message: any, context?: string) {
     const timestamp = new Date().toISOString();
-    console.log(`[${timestamp}] [LOG] ${context || ''}: ${message}`);
+    const normalizedMessage =
+      typeof message === 'object' ? JSON.stringify(message) : message;
+    console.log(`[${timestamp}] [LOG] ${context || ''}: ${normalizedMessage}`);
     // No escribir logs INFO en archivo para evitar saturación
   }
 

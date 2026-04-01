@@ -5,6 +5,7 @@ export interface CreatePresentationDto {
   productId: string;
   presentationTypeId: string;
   presentationInferenceId?: string;
+  baseUnitsQuantity?: number;
   quantity: number;
   barcode: string | null ;
   costPrice: number;

@@ -1,6 +1,7 @@
 import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
-import { PrismaClient, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { LoggerService } from '../common/logger/logger.service';
+import { PrismaService } from '../prisma/prisma.service';
 import {
   CreateCategoryDto,
   CategoryDto,
@@ -8,13 +9,15 @@ import {
   CategoryWithCountDto,
 } from '@small-billing/shared';
 
-const prisma = new PrismaClient();
 
 @Injectable()
 export class CategoryService {
-  constructor(private readonly logger: LoggerService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly logger: LoggerService,
+  ) {}
   async findAll(): Promise<CategoryWithCountDto[]> {
-    const categories = await prisma.category.findMany({
+    const categories = await this.prisma.category.findMany({
       where: { active: true },
       include: {
         _count: {
@@ -38,7 +41,7 @@ export class CategoryService {
   }
 
   async findOne(id: string): Promise<CategoryDto | null> {
-    return await prisma.category.findUnique({
+    return await this.prisma.category.findUnique({
       where: { id },
     });
   }
@@ -47,7 +50,7 @@ export class CategoryService {
     try {
       this.logger.log(`Creando categoría: ${data.name}`, 'CategoryService');
       
-      return await prisma.category.create({
+      return await this.prisma.category.create({
         data,
       });
     } catch (error) {
@@ -68,7 +71,7 @@ export class CategoryService {
     try {
       this.logger.log(`Actualizando categoría: ${id}`, 'CategoryService');
       
-      return await prisma.category.update({
+      return await this.prisma.category.update({
         where: { id },
         data,
       });
@@ -90,7 +93,7 @@ export class CategoryService {
   }
 
   async delete(id: string): Promise<CategoryDto> {
-    return await prisma.category.update({
+    return await this.prisma.category.update({
       where: { id },
       data: { active: false },
     });

@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
 import {
   CreateRewardDto,
   RewardDto,
@@ -7,15 +6,18 @@ import {
   RewardWithRelationsDto,
 } from '@small-billing/shared';
 import { LoggerService } from '../common/logger/logger.service';
+import { PrismaService } from '../prisma/prisma.service';
 
-const prisma = new PrismaClient();
 
 @Injectable()
 export class RewardService {
-  constructor(private readonly logger: LoggerService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly logger: LoggerService,
+  ) {}
 
   async findAll(): Promise<RewardWithRelationsDto[]> {
-    const rewards = await prisma.reward.findMany({
+    const rewards = await this.prisma.reward.findMany({
       where: { active: true },
       include: {
         presentation: {
@@ -51,7 +53,7 @@ export class RewardService {
   async findAvailable(): Promise<RewardWithRelationsDto[]> {
     const now = new Date();
     
-    const rewards = await prisma.reward.findMany({
+    const rewards = await this.prisma.reward.findMany({
       where: {
         active: true,
         OR: [
@@ -99,7 +101,7 @@ export class RewardService {
   }
 
   async findOne(id: string): Promise<RewardWithRelationsDto | null> {
-    const reward = await prisma.reward.findUnique({
+    const reward = await this.prisma.reward.findUnique({
       where: { id },
       include: {
         presentation: {
@@ -134,7 +136,7 @@ export class RewardService {
   }
 
   async create(data: CreateRewardDto): Promise<RewardDto> {
-    const reward = await prisma.reward.create({
+    const reward = await this.prisma.reward.create({
       data,
     });
 
@@ -158,7 +160,7 @@ export class RewardService {
   }
 
   async update(id: string, data: UpdateRewardDto): Promise<RewardDto> {
-    const reward = await prisma.reward.update({
+    const reward = await this.prisma.reward.update({
       where: { id },
       data,
     });
@@ -183,7 +185,7 @@ export class RewardService {
   }
 
   async delete(id: string): Promise<RewardDto> {
-    const reward = await prisma.reward.update({
+    const reward = await this.prisma.reward.update({
       where: { id },
       data: { active: false },
     });
@@ -208,7 +210,7 @@ export class RewardService {
   }
 
   async updateStock(id: string, quantity: number): Promise<RewardDto> {
-    const reward = await prisma.reward.findUnique({ where: { id } });
+    const reward = await this.prisma.reward.findUnique({ where: { id } });
 
     if (!reward) {
       throw new Error('Reward not found');
@@ -220,7 +222,7 @@ export class RewardService {
       throw new Error('Insufficient stock');
     }
 
-    const updated = await prisma.reward.update({
+    const updated = await this.prisma.reward.update({
       where: { id },
       data: { stock: newStock },
     });

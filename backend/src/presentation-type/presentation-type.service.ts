@@ -4,19 +4,21 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, PrismaClient } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import {
   CreatePresentationTypeDto,
   PresentationTypeDto,
   UpdatePresentationTypeDto,
 } from '@small-billing/shared';
+import { PrismaService } from '../prisma/prisma.service';
 
-const prisma = new PrismaClient();
 
 @Injectable()
 export class PresentationTypeService {
+  constructor(private readonly prisma: PrismaService) {}
+
   async findAll(): Promise<PresentationTypeDto[]> {
-    return prisma.presentationType.findMany({
+    return this.prisma.presentationType.findMany({
       where: { active: true },
       orderBy: { name: 'asc' },
     });
@@ -24,7 +26,7 @@ export class PresentationTypeService {
 
   async create(data: CreatePresentationTypeDto): Promise<PresentationTypeDto> {
     try {
-      return await prisma.presentationType.create({
+      return await this.prisma.presentationType.create({
         data,
       });
     } catch (error) {
@@ -45,7 +47,7 @@ export class PresentationTypeService {
     data: UpdatePresentationTypeDto,
   ): Promise<PresentationTypeDto> {
     try {
-      return await prisma.presentationType.update({
+      return await this.prisma.presentationType.update({
         where: { id },
         data,
       });
@@ -71,7 +73,7 @@ export class PresentationTypeService {
   }
 
   async delete(id: string): Promise<PresentationTypeDto> {
-    const presentationsCount = await prisma.presentation.count({
+    const presentationsCount = await this.prisma.presentation.count({
       where: { presentationTypeId: id, active: true },
     });
 
@@ -82,7 +84,7 @@ export class PresentationTypeService {
     }
 
     try {
-      return await prisma.presentationType.update({
+      return await this.prisma.presentationType.update({
         where: { id },
         data: { active: false },
       });

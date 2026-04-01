@@ -254,6 +254,10 @@ model Product {
   defaultPurchasePresentation Presentation? @relation("DefaultPurchasePresentation", fields: [defaultPurchasePresentationId], references: [id], onDelete: SetNull)
   defaultSalePresentation     Presentation? @relation("DefaultSalePresentation", fields: [defaultSalePresentationId], references: [id], onDelete: SetNull)
 
+  @@unique([name])
+  @@index([categoryId])
+  @@index([defaultPurchasePresentationId])
+  @@index([defaultSalePresentationId])
   @@map("products")
 }
 
@@ -271,6 +275,7 @@ model ProductImage {
 
   createdAt DateTime @default(now()) @map("created_at")
 
+  @@index([productId])
   @@map("product_images")
 }
 
@@ -304,6 +309,9 @@ model Presentation {
   presentationInference   Presentation? @relation("PresentationInference", fields: [presentationInferenceId], references: [id], onDelete: Restrict)
   inferredPresentations   Presentation[] @relation("PresentationInference")
 
+  // Cantidad real en unidades base del producto (uso interno para cálculos y orden)
+  baseUnitsQuantity Int @default(1) @map("base_units_quantity")
+
   quantity Int // Cantidad de la presentación de referencia (ej: balde = 12 unidades)
   barcode  String? @db.VarChar(50) // Nullable porque no todos los productos tienen código de barras
 
@@ -327,6 +335,11 @@ model Presentation {
   saleDetails                    SaleDetail[]
   saleProductTaxes               SaleProductTax[]
 
+  @@unique([productId, presentationTypeId])
+  @@index([productId])
+  @@index([presentationTypeId])
+  @@index([presentationInferenceId])
+  @@index([productId, active])
   @@map("presentations")
 }
 
@@ -457,6 +470,8 @@ model ProductTax {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@unique([productId, taxValueCode])
+  @@index([productId])
+  @@index([productId, active])
   @@map("product_taxes")
 }
 

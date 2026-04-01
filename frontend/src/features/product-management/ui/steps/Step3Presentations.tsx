@@ -9,11 +9,79 @@ interface Step3Props {
 export function Step3Presentations({ presentations, onUpdate }: Step3Props) {
   const { presentationTypes, loading: loadingPresentationTypes } = usePresentationTypes();
 
+  const normalize = (value?: string) => (value || '').trim().toLowerCase();
+  const unidadType = presentationTypes.find((type) => normalize(type.name) === 'unidad');
+
+  const getTypeName = (presentation: PresentationFormData): string => {
+    if (presentation.presentationTypeName) return presentation.presentationTypeName;
+    return (
+      presentationTypes.find((type) => type.id === presentation.presentationTypeId)?.name ||
+      'Tipo no seleccionado'
+    );
+  };
+
+  const isUnidadPresentation = (presentation: PresentationFormData): boolean => {
+    if (!presentation.presentationTypeId) return false;
+    return (
+      presentation.presentationTypeId === unidadType?.id ||
+      normalize(getTypeName(presentation)) === 'unidad'
+    );
+  };
+
+  const getTypeOptions = (index: number) => {
+    const selectedTypeIds = new Set(
+      presentations
+        .filter((_, i) => i !== index)
+        .filter((item) => item.active ?? true)
+        .map((item) => item.presentationTypeId)
+        .filter(Boolean),
+    );
+
+    return presentationTypes.filter((type) => {
+      const isUnidad = type.id === unidadType?.id || normalize(type.name) === 'unidad';
+      const currentTypeId = presentations[index].presentationTypeId;
+
+      if (isUnidad && currentTypeId !== type.id) {
+        return false;
+      }
+
+      if (selectedTypeIds.has(type.id) && currentTypeId !== type.id) {
+        return false;
+      }
+
+      return true;
+    });
+  };
+
+  const getInferenceOptions = (index: number) => {
+    return presentations
+      .filter((_, i) => i !== index)
+      .filter((item) => item.active ?? true)
+      .filter((item) => Boolean(item.presentationTypeId))
+      .map((item) => ({
+        typeId: item.presentationTypeId,
+        label: getTypeName(item),
+      }));
+  };
+
+  const selectedActiveTypeIds = new Set(
+    presentations
+      .filter((item) => item.active ?? true)
+      .map((item) => item.presentationTypeId)
+      .filter(Boolean),
+  );
+  const availableTypesForNew = presentationTypes.filter((type) => {
+    const isUnidad = type.id === unidadType?.id || normalize(type.name) === 'unidad';
+    return !isUnidad && !selectedActiveTypeIds.has(type.id);
+  });
+
   const addPresentation = () => {
     onUpdate([
       ...presentations,
       {
         presentationTypeId: '',
+        presentationInferenceId: null,
+        presentationInferenceTypeId: null,
         quantity: 1,
         barcode: null,
         costPrice: 0,
@@ -52,8 +120,12 @@ export function Step3Presentations({ presentations, onUpdate }: Step3Props) {
       </div>
 
       <div className="space-y-4">
-        {presentations.map((presentation, index) => (
-          <div
+        {presentations.map((presentation, index) => {
+          const isUnidad = isUnidadPresentation(presentation);
+          const inferenceOptions = getInferenceOptions(index);
+
+          return (
+            <div
             key={`presentation-${index}`}
             className="bg-white dark:bg-gray-800 p-6 rounded-lg border-2 border-gray-200 dark:border-gray-700"
           >
@@ -62,13 +134,15 @@ export function Step3Presentations({ presentations, onUpdate }: Step3Props) {
                 Presentación #{index + 1}
               </h4>
               <div className="flex items-center gap-3">
-                <button
-                  onClick={() => togglePresentationStatus(index)}
-                  className="text-xs font-medium px-2 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-gray-400"
-                >
-                  {(presentation.active ?? true) ? 'Desactivar' : 'Activar'}
-                </button>
-                {presentations.length > 1 && (
+                {!isUnidad && (
+                  <button
+                    onClick={() => togglePresentationStatus(index)}
+                    className="text-xs font-medium px-2 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-gray-400"
+                  >
+                    {(presentation.active ?? true) ? 'Desactivar' : 'Activar'}
+                  </button>
+                )}
+                {presentations.length > 1 && !isUnidad && (
                   <button
                     onClick={() => removePresentation(index)}
                     className="text-red-600 hover:text-red-700 text-sm font-medium"
@@ -99,16 +173,19 @@ export function Step3Presentations({ presentations, onUpdate }: Step3Props) {
                       ...updated[index],
                       presentationTypeId: e.target.value,
                       presentationTypeName: selected?.name || undefined,
+                      presentationInferenceTypeId:
+                        updated[index].presentationInferenceTypeId ||
+                        (normalize(selected?.name) === 'unidad' ? e.target.value : null),
                     };
                     onUpdate(updated);
                   }}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                  disabled={loadingPresentationTypes}
+                  disabled={loadingPresentationTypes || isUnidad}
                 >
                   <option value="">
                     {loadingPresentationTypes ? 'Cargando tipos...' : 'Selecciona un tipo'}
                   </option>
-                  {presentationTypes.map((type) => (
+                  {getTypeOptions(index).map((type) => (
                     <option key={type.id} value={type.id}>
                       {type.name}
                     </option>
@@ -116,9 +193,31 @@ export function Step3Presentations({ presentations, onUpdate }: Step3Props) {
                 </select>
               </div>
 
+              {!isUnidad && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Esta presentación está compuesta por <span className="text-red-600">*</span>
+                  </label>
+                  <select
+                    value={presentation.presentationInferenceTypeId || ''}
+                    onChange={(e) =>
+                      updatePresentation(index, 'presentationInferenceTypeId', e.target.value || null)
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  >
+                    <option value="">Selecciona una presentación base</option>
+                    {inferenceOptions.map((option) => (
+                      <option key={`${option.typeId}-${index}`} value={option.typeId}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Cantidad de unidades
+                  Cantidad
                 </label>
                 <input
                   type="number"
@@ -126,6 +225,7 @@ export function Step3Presentations({ presentations, onUpdate }: Step3Props) {
                   onChange={(e) => updatePresentation(index, 'quantity', Number(e.target.value) || 1)}
                   min="1"
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  disabled={isUnidad}
                 />
               </div>
 
@@ -174,15 +274,23 @@ export function Step3Presentations({ presentations, onUpdate }: Step3Props) {
               </div>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       <button
         onClick={addPresentation}
+        disabled={availableTypesForNew.length === 0}
         className="w-full py-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-400 hover:border-red-500 hover:text-red-600 transition-colors font-medium"
       >
         + Agregar otra presentación
       </button>
+
+      {availableTypesForNew.length === 0 && (
+        <p className="text-xs text-gray-500 dark:text-gray-400">
+          Ya no hay más tipos disponibles para agregar en este producto.
+        </p>
+      )}
 
       <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg border border-yellow-200 dark:border-yellow-800">
         <h4 className="text-sm font-semibold text-yellow-900 dark:text-yellow-300 mb-2">

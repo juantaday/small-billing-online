@@ -30,6 +30,9 @@ export interface PresentationFormData {
   id?: string;
   presentationTypeId: string;
   presentationTypeName?: string;
+  presentationInferenceId?: string | null;
+  presentationInferenceTypeId?: string | null;
+  baseUnitsQuantity?: number;
   quantity: number;
   barcode: string | null;
   costPrice: number;

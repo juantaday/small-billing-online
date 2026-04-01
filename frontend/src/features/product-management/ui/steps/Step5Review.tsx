@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { ShoppingCart, Store } from 'lucide-react';
 import { ProductFormData } from '../types';
 
 interface Step5Props {
@@ -6,12 +6,18 @@ interface Step5Props {
 }
 
 export function Step5Review({ data }: Step5Props) {
-  useEffect(() => {
-    console.log('📋 [Step5Review] Mounted with', data.presentations.length, 'presentations');
-  }, []);
-
   const getPresentationLabel = (presentation: (typeof data.presentations)[number]) =>
     presentation.presentationTypeName || 'Tipo no seleccionado';
+
+  const defaultPurchasePresentation =
+    data.defaultPurchasePresentationIndex !== null && data.defaultPurchasePresentationIndex >= 0
+      ? data.presentations[data.defaultPurchasePresentationIndex]
+      : null;
+
+  const defaultSalePresentation =
+    data.defaultSalePresentationIndex !== null && data.defaultSalePresentationIndex >= 0
+      ? data.presentations[data.defaultSalePresentationIndex]
+      : null;
 
   return (
     <div className="space-y-6">
@@ -22,6 +28,41 @@ export function Step5Review({ data }: Step5Props) {
         <p className="text-sm text-gray-600 dark:text-gray-400">
           Verifica que toda la información sea correcta antes de guardar
         </p>
+      </div>
+
+      {/* Presentaciones por defecto - Resumen */}
+      <div className="bg-blue-50 dark:bg-blue-900/20 p-6 rounded-lg border border-blue-200 dark:border-blue-800">
+        <h4 className="font-semibold text-gray-900 dark:text-white mb-4">
+          🎯 Presentaciones por Defecto
+        </h4>
+        <div className="space-y-3">
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
+              <ShoppingCart className="w-4 h-4 text-red-700 dark:text-red-300" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Presentación de compra:
+              </p>
+              <p className="font-semibold text-gray-900 dark:text-white">
+                {defaultPurchasePresentation ? getPresentationLabel(defaultPurchasePresentation) : 'No seleccionada'}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-full bg-success-100 dark:bg-success-900/30 flex items-center justify-center flex-shrink-0">
+              <Store className="w-4 h-4 text-success-700 dark:text-success-300" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Presentación de venta:
+              </p>
+              <p className="font-semibold text-gray-900 dark:text-white">
+                {defaultSalePresentation ? getPresentationLabel(defaultSalePresentation) : 'No seleccionada'}
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Información básica */}
@@ -93,12 +134,12 @@ export function Step5Review({ data }: Step5Props) {
                   {getPresentationLabel(presentation)}
                 </h5>
                 <div className="flex gap-2">
-                  {data.defaultPurchaseIndex === index && (
+                  {data.defaultPurchasePresentationIndex === index && (
                     <span className="px-2 py-1 bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-xs font-medium rounded">
                       Compra
                     </span>
                   )}
-                  {data.defaultSaleIndex === index && (
+                  {data.defaultSalePresentationIndex === index && (
                     <span className="px-2 py-1 badge-success text-xs font-medium rounded">
                       Venta
                     </span>

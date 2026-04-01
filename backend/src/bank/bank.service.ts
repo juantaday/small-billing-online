@@ -3,15 +3,17 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, PrismaClient } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { BankDto, CreateBankDto, UpdateBankDto } from '@small-billing/shared';
+import { PrismaService } from '../prisma/prisma.service';
 
-const prisma = new PrismaClient();
 
 @Injectable()
 export class BankService {
+  constructor(private readonly prisma: PrismaService) {}
+
   async findAll(): Promise<BankDto[]> {
-    return prisma.bank.findMany({
+    return this.prisma.bank.findMany({
       where: { active: true },
       orderBy: { name: 'asc' },
     });
@@ -19,7 +21,7 @@ export class BankService {
 
   async create(data: CreateBankDto): Promise<BankDto> {
     try {
-      return await prisma.bank.create({
+      return await this.prisma.bank.create({
         data: {
           code: data.code.trim(),
           name: data.name.trim(),
@@ -39,7 +41,7 @@ export class BankService {
 
   async update(id: string, data: UpdateBankDto): Promise<BankDto> {
     try {
-      return await prisma.bank.update({
+      return await this.prisma.bank.update({
         where: { id },
         data: {
           code: data.code?.trim(),
@@ -66,7 +68,7 @@ export class BankService {
 
   async delete(id: string): Promise<BankDto> {
     try {
-      return await prisma.bank.update({
+      return await this.prisma.bank.update({
         where: { id },
         data: { active: false },
       });

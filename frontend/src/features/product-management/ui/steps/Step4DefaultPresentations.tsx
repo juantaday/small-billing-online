@@ -1,4 +1,5 @@
 import clsx from 'clsx';
+import { ShoppingCart, Store } from 'lucide-react';
 import { ProductFormData, PresentationFormData } from '../types';
 
 interface Step4Props {
@@ -34,9 +35,14 @@ export function Step4DefaultPresentations({
 
       {/* Presentación de compra */}
       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border-2 border-gray-200 dark:border-gray-700">
-        <label className="block text-base font-medium text-gray-900 dark:text-white mb-3">
-          ¿En qué presentación se compra normalmente?
-        </label>
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+            <ShoppingCart className="w-4 h-4 text-red-700 dark:text-red-300" />
+          </div>
+          <label className="block text-base font-medium text-gray-900 dark:text-white">
+            ¿En qué presentación se compra normalmente?
+          </label>
+        </div>
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
           Esto ayudará al sistema a sugerir la presentación correcta al registrar compras
         </p>
@@ -73,9 +79,14 @@ export function Step4DefaultPresentations({
 
       {/* Presentación de venta */}
       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border-2 border-gray-200 dark:border-gray-700">
-        <label className="block text-base font-medium text-gray-900 dark:text-white mb-3">
-          ¿En qué presentación se vende normalmente?
-        </label>
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-8 h-8 rounded-full bg-success-100 dark:bg-success-900/30 flex items-center justify-center">
+            <Store className="w-4 h-4 text-success-700 dark:text-success-300" />
+          </div>
+          <label className="block text-base font-medium text-gray-900 dark:text-white">
+            ¿En qué presentación se vende normalmente?
+          </label>
+        </div>
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
           Esta será la presentación que aparecerá por defecto en el menú y sistema de ventas
         </p>

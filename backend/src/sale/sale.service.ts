@@ -6,7 +6,6 @@ import {
 import {
   PaymentMethodType,
   Prisma,
-  PrismaClient,
   SaleStatus,
 } from '@prisma/client';
 import {
@@ -15,8 +14,8 @@ import {
   SaleWithRelationsDto,
   UpdateSaleDto,
 } from '@small-billing/shared';
+import { PrismaService } from '../prisma/prisma.service';
 
-const prisma = new PrismaClient();
 
 const DEFAULT_ESTABLISHMENT = '001';
 const DEFAULT_POINT_OF_SALE = '001';
@@ -57,8 +56,10 @@ function resolveFactorToBase(
 
 @Injectable()
 export class SaleService {
+  constructor(private readonly prisma: PrismaService) {}
+
   async findAll(): Promise<SaleWithRelationsDto[]> {
-    const sales = await prisma.sale.findMany({
+    const sales = await this.prisma.sale.findMany({
       orderBy: { saleDate: 'desc' },
       include: {
         details: true,
@@ -122,7 +123,7 @@ export class SaleService {
   }
 
   async findOne(id: string): Promise<SaleWithRelationsDto> {
-    const sale = await prisma.sale.findUnique({
+    const sale = await this.prisma.sale.findUnique({
       where: { id },
       include: {
         details: true,
@@ -198,7 +199,7 @@ export class SaleService {
       throw new BadRequestException('La venta debe contener al menos un método de pago');
     }
 
-    const customer = await prisma.customer.findUnique({
+    const customer = await this.prisma.customer.findUnique({
       where: { id: data.customerId },
     });
 
@@ -206,7 +207,7 @@ export class SaleService {
       throw new NotFoundException('Cliente no encontrado o inactivo');
     }
 
-    const user = await prisma.user.findUnique({
+    const user = await this.prisma.user.findUnique({
       where: { id: data.userId },
     });
 
@@ -216,7 +217,7 @@ export class SaleService {
 
     const presentationIds = [...new Set(data.details.map((item) => item.presentationId))];
 
-    const presentations = await prisma.presentation.findMany({
+    const presentations = await this.prisma.presentation.findMany({
       where: {
         id: { in: presentationIds },
         active: true,
@@ -381,7 +382,7 @@ export class SaleService {
           ? SaleStatus.CREDIT
           : SaleStatus.PARTIAL_PAYMENT;
 
-    const createdSale = await prisma.$transaction(async (tx) => {
+    const createdSale = await this.prisma.$transaction(async (tx) => {
       const sequence = await tx.invoiceSequence.upsert({
         where: {
           establishment_pointOfSale: {
@@ -540,7 +541,7 @@ export class SaleService {
 
   async update(id: string, data: UpdateSaleDto): Promise<SaleDto> {
     try {
-      const sale = await prisma.sale.update({
+      const sale = await this.prisma.sale.update({
         where: { id },
         data: {
           status: data.status as SaleStatus | undefined,

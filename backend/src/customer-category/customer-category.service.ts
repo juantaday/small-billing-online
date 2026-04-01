@@ -1,17 +1,18 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
 import {
   CreateCustomerCategoryDto,
   CustomerCategoryDto,
   UpdateCustomerCategoryDto,
 } from '@small-billing/shared';
+import { PrismaService } from '../prisma/prisma.service';
 
-const prisma = new PrismaClient();
 
 @Injectable()
 export class CustomerCategoryService {
+  constructor(private readonly prisma: PrismaService) {}
+
   async findAll(): Promise<CustomerCategoryDto[]> {
-    const categories = await prisma.customerCategory.findMany({
+    const categories = await this.prisma.customerCategory.findMany({
       where: { active: true },
       orderBy: { name: 'asc' },
     });
@@ -30,7 +31,7 @@ export class CustomerCategoryService {
   }
 
   async findOne(id: string): Promise<CustomerCategoryDto | null> {
-    const category = await prisma.customerCategory.findUnique({
+    const category = await this.prisma.customerCategory.findUnique({
       where: { id },
     });
 
@@ -50,7 +51,7 @@ export class CustomerCategoryService {
   }
 
   async create(data: CreateCustomerCategoryDto): Promise<CustomerCategoryDto> {
-    const category = await prisma.customerCategory.create({
+    const category = await this.prisma.customerCategory.create({
       data,
     });
 
@@ -68,7 +69,7 @@ export class CustomerCategoryService {
   }
 
   async update(id: string, data: UpdateCustomerCategoryDto): Promise<CustomerCategoryDto> {
-    const category = await prisma.customerCategory.update({
+    const category = await this.prisma.customerCategory.update({
       where: { id },
       data,
     });
@@ -87,7 +88,7 @@ export class CustomerCategoryService {
   }
 
   async delete(id: string): Promise<CustomerCategoryDto> {
-    const category = await prisma.customerCategory.update({
+    const category = await this.prisma.customerCategory.update({
       where: { id },
       data: { active: false },
     });

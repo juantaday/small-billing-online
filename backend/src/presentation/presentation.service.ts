@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, PrismaClient } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import {
   CreatePresentationDto,
   PresentationDto,
@@ -7,9 +7,13 @@ import {
   UpdateStockDto,
 } from '@small-billing/shared';
 import { LoggerService } from '../common/logger/logger.service';
+import { PrismaService } from '../prisma/prisma.service';
 
-const prisma = new PrismaClient();
 const presentationWithTypeInclude = {
+  presentationType: true,
+} as const;
+
+const presentationWithTypeAndStockInclude = {
   presentationType: true,
   product: {
     include: {
@@ -20,7 +24,23 @@ const presentationWithTypeInclude = {
 
 @Injectable()
 export class PresentationService {
-  constructor(private readonly logger: LoggerService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly logger: LoggerService,
+  ) {}
+
+  private normalizeText(value?: string | null): string {
+    return (value || '').trim().toLowerCase();
+  }
+
+  private async isUnidadType(presentationTypeId: string): Promise<boolean> {
+    const type = await this.prisma.presentationType.findUnique({
+      where: { id: presentationTypeId },
+      select: { name: true },
+    });
+
+    return this.normalizeText(type?.name) === 'unidad';
+  }
 
   private resolveFactorToBase(
     presentationId: string,
@@ -60,6 +80,7 @@ export class PresentationService {
       productId: presentation.productId,
       presentationTypeId: presentation.presentationTypeId,
       presentationInferenceId: presentation.presentationInferenceId,
+      baseUnitsQuantity: presentation.baseUnitsQuantity,
       presentationType: presentation.presentationType,
       barcode: presentation.barcode,
       costPrice: presentation.costPrice.toNumber(),
@@ -76,91 +97,73 @@ export class PresentationService {
     };
   }
 
-  async findByProduct(productId: string): Promise<PresentationDto[]> {
-    const presentations = await prisma.presentation.findMany({
-      where: { productId, active: true },
-      include: presentationWithTypeInclude,
-    });
+  private resolveFactorFromStoredBaseUnits(presentation: any): number {
+    const value = Number(presentation?.baseUnitsQuantity ?? 1);
+    return Number.isFinite(value) && value > 0 ? value : 1;
+  }
 
-    const presentationMap = new Map(
-      presentations.map((presentation) => [
-        presentation.id,
-        {
-          id: presentation.id,
-          quantity: presentation.quantity,
-          presentationInferenceId: presentation.presentationInferenceId,
-        },
-      ]),
-    );
-    const factorCache = new Map<string, number>();
-    const stock = presentations[0]?.product?.productStock;
-
-    return presentations.map((presentation) => {
-      const factorToBase = this.resolveFactorToBase(presentation.id, presentationMap, factorCache);
-      return this.toDto(presentation, stock || undefined, factorToBase);
+  private async getStockByProductId(productId: string) {
+    return this.prisma.productStock.findUnique({
+      where: { productId },
+      select: {
+        stock: true,
+        minStock: true,
+        maxStock: true,
+      },
     });
   }
 
+  async findByProduct(productId: string): Promise<PresentationDto[]> {
+    const startedAt = Date.now();
+    const [presentations, stock] = await Promise.all([
+      this.prisma.presentation.findMany({
+        where: { productId, active: true },
+        include: presentationWithTypeInclude,
+        orderBy: { baseUnitsQuantity: 'asc' },
+      }),
+      this.getStockByProductId(productId),
+    ]);
+
+    const result = presentations.map((presentation) => {
+      const factorToBase = this.resolveFactorFromStoredBaseUnits(presentation);
+      return this.toDto(presentation, stock || undefined, factorToBase);
+    });
+
+    this.logger.info(
+      {
+        operation: 'findByProduct',
+        productId,
+        totalPresentations: result.length,
+        durationMs: Date.now() - startedAt,
+      },
+      'PresentationPerformance',
+    );
+
+    return result;
+  }
+
   async findOne(id: string): Promise<PresentationDto | null> {
-    const presentation = await prisma.presentation.findUnique({
+    const presentation = await this.prisma.presentation.findUnique({
       where: { id },
       include: presentationWithTypeInclude,
     });
 
     if (!presentation) return null;
-
-    const productPresentations = await prisma.presentation.findMany({
-      where: { productId: presentation.productId, active: true },
-      select: {
-        id: true,
-        quantity: true,
-        presentationInferenceId: true,
-      },
-    });
-
-    const map = new Map(
-      productPresentations.map((item) => [
-        item.id,
-        {
-          id: item.id,
-          quantity: item.quantity,
-          presentationInferenceId: item.presentationInferenceId,
-        },
-      ]),
-    );
-
-    const factorToBase = this.resolveFactorToBase(presentation.id, map, new Map());
-    return this.toDto(presentation, presentation.product?.productStock || undefined, factorToBase);
+    const stock = await this.getStockByProductId(presentation.productId);
+    const factorToBase = this.resolveFactorFromStoredBaseUnits(presentation);
+    return this.toDto(presentation, stock || undefined, factorToBase);
   }
 
   async findByBarcode(barcode: string): Promise<PresentationDto | null> {
-    const presentation = await prisma.presentation.findUnique({
+    const presentation = await this.prisma.presentation.findUnique({
       where: { barcode },
       include: presentationWithTypeInclude,
     });
 
     if (!presentation) return null;
-
-    const productPresentations = await prisma.presentation.findMany({
-      where: { productId: presentation.productId, active: true },
-      select: {
-        id: true,
-        quantity: true,
-        presentationInferenceId: true,
-      },
-    });
-    const map = new Map(
-      productPresentations.map((item) => [
-        item.id,
-        {
-          id: item.id,
-          quantity: item.quantity,
-          presentationInferenceId: item.presentationInferenceId,
-        },
-      ]),
-    );
-    const factorToBase = this.resolveFactorToBase(presentation.id, map, new Map());
-    return this.toDto(presentation, presentation.product?.productStock || undefined, factorToBase);
+    const stock = await this.getStockByProductId(presentation.productId);
+    const factorToBase = this.resolveFactorFromStoredBaseUnits(presentation);
+    return this.toDto(presentation, stock || undefined, factorToBase);
   }
 
   async create(data: CreatePresentationDto): Promise<PresentationDto> {
@@ -169,8 +172,27 @@ export class PresentationService {
       'PresentationService',
     );
     
+    const duplicateType = await this.prisma.presentation.findFirst({
+      where: {
+        productId: data.productId,
+        presentationTypeId: data.presentationTypeId,
+      },
+      select: { id: true },
+    });
+
+    if (duplicateType) {
+      throw new BadRequestException('Ya existe una presentación de este tipo para el producto.');
+    }
+
+    const isUnidad = await this.isUnidadType(data.presentationTypeId);
+    if (!isUnidad && !data.presentationInferenceId) {
+      throw new BadRequestException(
+        'Debes seleccionar la presentación base (presentationInferenceId) para crear esta presentación.',
+      );
+    }
+
     if (data.presentationInferenceId) {
-      const inferred = await prisma.presentation.findUnique({
+      const inferred = await this.prisma.presentation.findUnique({
         where: { id: data.presentationInferenceId },
       });
 
@@ -179,7 +201,7 @@ export class PresentationService {
       }
     }
 
-    const presentation = await prisma.presentation.create({
+    const presentation = await this.prisma.presentation.create({
       data: {
         productId: data.productId,
         presentationTypeId: data.presentationTypeId,
@@ -196,7 +218,7 @@ export class PresentationService {
     });
 
     if (!presentation.presentationInferenceId) {
-      await prisma.presentation.update({
+      await this.prisma.presentation.update({
         where: { id: presentation.id },
         data: { presentationInferenceId: presentation.id },
       });
@@ -209,7 +231,7 @@ export class PresentationService {
       barcode: data.barcode,
     });
 
-    const productPresentations = await prisma.presentation.findMany({
+    const productPresentations = await this.prisma.presentation.findMany({
       where: { productId: presentation.productId, active: true },
       select: {
         id: true,
@@ -228,15 +250,53 @@ export class PresentationService {
       ]),
     );
     const factorToBase = this.resolveFactorToBase(presentation.id, map, new Map());
-    return this.toDto(presentation, presentation.product?.productStock || undefined, factorToBase);
+    const stock = await this.getStockByProductId(presentation.productId);
+    return this.toDto(presentation, stock || undefined, factorToBase);
   }
 
   async update(id: string, data: UpdatePresentationDto): Promise<PresentationDto> {
     this.logger.log(`Actualizando presentación: ${id}`, 'PresentationService');
+
+    const current = await this.prisma.presentation.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        productId: true,
+        presentationTypeId: true,
+        presentationInferenceId: true,
+      },
+    });
+
+    if (!current) {
+      throw new NotFoundException(`Presentación no encontrada: ${id}`);
+    }
+
+    const nextTypeId = data.presentationTypeId || current.presentationTypeId;
+    const duplicateType = await this.prisma.presentation.findFirst({
+      where: {
+        productId: current.productId,
+        presentationTypeId: nextTypeId,
+        id: {
+          not: id,
+        },
+      },
+      select: { id: true },
+    });
+
+    if (duplicateType) {
+      throw new BadRequestException('Ya existe una presentación de este tipo para el producto.');
+    }
+
+    const isUnidad = await this.isUnidadType(nextTypeId);
+    const nextInferenceId = data.presentationInferenceId ?? current.presentationInferenceId ?? null;
+    if (!isUnidad && !nextInferenceId) {
+      throw new BadRequestException(
+        'Debes seleccionar la presentación base (presentationInferenceId) para actualizar esta presentación.',
+      );
+    }
     
     if (data.presentationInferenceId) {
-      const current = await prisma.presentation.findUnique({ where: { id } });
-      const inferred = await prisma.presentation.findUnique({
+      const inferred = await this.prisma.presentation.findUnique({
         where: { id: data.presentationInferenceId },
       });
 
@@ -245,7 +305,7 @@ export class PresentationService {
       }
     }
 
-    const presentation = await prisma.presentation.update({
+    const presentation = await this.prisma.presentation.update({
       where: { id },
       data: {
         presentationTypeId: data.presentationTypeId,
@@ -263,7 +323,7 @@ export class PresentationService {
     this.logger.log(`Presentación actualizada exitosamente: ${id}`, 'PresentationService');
     this.logger.logDatabaseOperation('UPDATE', 'Presentation', { id, ...data });
 
-    const productPresentations = await prisma.presentation.findMany({
+    const productPresentations = await this.prisma.presentation.findMany({
       where: { productId: presentation.productId, active: true },
       select: {
         id: true,
@@ -282,15 +342,16 @@ export class PresentationService {
       ]),
     );
     const factorToBase = this.resolveFactorToBase(presentation.id, map, new Map());
-    return this.toDto(presentation, presentation.product?.productStock || undefined, factorToBase);
+    const stock = await this.getStockByProductId(presentation.productId);
+    return this.toDto(presentation, stock || undefined, factorToBase);
   }
 
   async updateStock(data: UpdateStockDto): Promise<PresentationDto> {
     this.logger.log(`Actualizando stock de presentación: ${data.id} - Cantidad: ${data.quantity}`, 'PresentationService');
     
-    const presentation = await prisma.presentation.findUnique({
+    const presentation = await this.prisma.presentation.findUnique({
       where: { id: data.id },
-      include: presentationWithTypeInclude,
+      include: presentationWithTypeAndStockInclude,
     });
 
     if (!presentation) {
@@ -298,7 +359,7 @@ export class PresentationService {
       throw new Error('Presentation not found');
     }
 
-    const productPresentations = await prisma.presentation.findMany({
+    const productPresentations = await this.prisma.presentation.findMany({
       where: { productId: presentation.productId, active: true },
       select: {
         id: true,
@@ -328,27 +389,32 @@ export class PresentationService {
       throw new Error('Insufficient stock');
     }
 
-    await prisma.productStock.update({
+    await this.prisma.productStock.update({
       where: { productId: presentation.productId },
       data: { stock: newStock },
     });
 
-    const updated = await prisma.presentation.findUnique({
+    const updated = await this.prisma.presentation.findUnique({
       where: { id: data.id },
       include: presentationWithTypeInclude,
     });
 
-    return this.toDto(updated, updated?.product?.productStock || undefined, factorToBase);
+    if (!updated) {
+      throw new NotFoundException(`Presentación no encontrada: ${data.id}`);
+    }
+
+    const stock = await this.getStockByProductId(updated.productId);
+    return this.toDto(updated, stock || undefined, factorToBase);
   }
 
   async getLowStock(): Promise<PresentationDto[]> {
-    const presentations = await prisma.presentation.findMany({
+    const presentations = await this.prisma.presentation.findMany({
       where: {
         active: true,
         product: {
           productStock: {
             stock: {
-              lte: prisma.productStock.fields.minStock,
+              lte: this.prisma.productStock.fields.minStock,
             },
           },
         },
@@ -397,7 +463,7 @@ export class PresentationService {
   async remove(id: string): Promise<PresentationDto> {
     this.logger.log(`Eliminando presentación: ${id}`, 'PresentationService');
 
-    const current = await prisma.presentation.findUnique({
+    const current = await this.prisma.presentation.findUnique({
       where: { id },
       include: presentationWithTypeInclude,
     });
@@ -406,18 +472,20 @@ export class PresentationService {
       throw new NotFoundException(`Presentación no encontrada: ${id}`);
     }
 
-    await prisma.product.updateMany({
+    await this.prisma.product.updateMany({
       where: { defaultPurchasePresentationId: id },
       data: { defaultPurchasePresentationId: null },
     });
 
-    await prisma.product.updateMany({
+    await this.prisma.product.updateMany({
       where: { defaultSalePresentationId: id },
       data: { defaultSalePresentationId: null },
     });
 
     try {
-      const deleted = await prisma.presentation.delete({
+      const stock = await this.getStockByProductId(current.productId);
+
+      const deleted = await this.prisma.presentation.delete({
         where: { id },
         include: presentationWithTypeInclude,
       });
@@ -425,7 +493,7 @@ export class PresentationService {
       this.logger.log(`Presentación eliminada físicamente: ${id}`, 'PresentationService');
       this.logger.logDatabaseOperation('DELETE', 'Presentation', { id, hardDelete: true });
 
-      const productPresentations = await prisma.presentation.findMany({
+      const productPresentations = await this.prisma.presentation.findMany({
         where: { productId: deleted.productId, active: true },
         select: {
           id: true,
@@ -446,7 +514,7 @@ export class PresentationService {
       );
 
       const factorToBase = this.resolveFactorToBase(current.id, map, new Map());
-      return this.toDto(current, current.product?.productStock || undefined, factorToBase);
+      return this.toDto(current, stock || undefined, factorToBase);
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&

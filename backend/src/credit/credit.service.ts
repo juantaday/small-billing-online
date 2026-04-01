@@ -6,7 +6,6 @@ import {
 import {
   PaymentMethodType,
   Prisma,
-  PrismaClient,
   SaleStatus,
 } from '@prisma/client';
 import {
@@ -14,8 +13,8 @@ import {
   CreditDto,
   CreditWithRelationsDto,
 } from '@small-billing/shared';
+import { PrismaService } from '../prisma/prisma.service';
 
-const prisma = new PrismaClient();
 
 function toNumber(value: Prisma.Decimal | number | null | undefined): number {
   if (value === null || value === undefined) return 0;
@@ -25,8 +24,10 @@ function toNumber(value: Prisma.Decimal | number | null | undefined): number {
 
 @Injectable()
 export class CreditService {
+  constructor(private readonly prisma: PrismaService) {}
+
   async findAllOpenCredits(): Promise<CreditWithRelationsDto[]> {
-    const credits = await prisma.credit.findMany({
+    const credits = await this.prisma.credit.findMany({
       where: { isPaid: false },
       include: {
         payments: true,
@@ -63,7 +64,7 @@ export class CreditService {
   }
 
   async findOneBySaleId(saleId: string): Promise<CreditWithRelationsDto> {
-    const credit = await prisma.credit.findUnique({
+    const credit = await this.prisma.credit.findUnique({
       where: { saleId },
       include: {
         payments: {
@@ -109,7 +110,7 @@ export class CreditService {
       throw new BadRequestException('El abono debe ser mayor a cero');
     }
 
-    const credit = await prisma.credit.findUnique({
+    const credit = await this.prisma.credit.findUnique({
       where: { id: data.creditId },
       include: { sale: true },
     });
@@ -136,7 +137,7 @@ export class CreditService {
       throw new BadRequestException('Tarjeta requiere número de voucher');
     }
 
-    const updated = await prisma.$transaction(async (tx) => {
+    const updated = await this.prisma.$transaction(async (tx) => {
       await tx.creditPayment.create({
         data: {
           creditId: data.creditId,

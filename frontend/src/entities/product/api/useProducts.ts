@@ -5,7 +5,13 @@
 
 import { useState, useEffect } from 'react';
 import { productApi } from './product-api';
-import { ProductDto, CreateProductDto, UpdateProductDto, ProductWithRelationsDto } from '@small-billing/shared';
+import {
+  ProductDto,
+  CreateProductDto,
+  UpdateProductDto,
+  ProductWithRelationsDto,
+  FinalizeProductWizardDto,
+} from '@small-billing/shared';
 
 export function useProducts() {
   const [products, setProducts] = useState<ProductWithRelationsDto[]>([]);
@@ -16,14 +22,12 @@ export function useProducts() {
     setLoading(true);
     setError(null);
     try {
-      // TODO: Agregar filtro por categoryId cuando el API lo soporte
       const data = await productApi.getAll();
-      
-      // Filtrar por categoría en el frontend si es necesario
-      const filteredData = categoryId 
-        ? data.filter(p => p.categoryId === categoryId)
+
+      const filteredData = categoryId
+        ? data.filter((p) => p.categoryId === categoryId)
         : data;
-      
+
       setProducts(filteredData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido');
@@ -33,10 +37,38 @@ export function useProducts() {
     }
   };
 
-  const createProduct = async (data: CreateProductDto): Promise<ProductDto> => {
+  /**
+   * Recarga un único producto por ID y actualiza el estado local.
+   * Usar esto en lugar de fetchProducts() después de editar/crear
+   * para evitar traer todos los productos de nuevo.
+   */
+  const refreshProduct = async (id: string): Promise<void> => {
+    try {
+      const updated = await productApi.getById(id, true);
+      setProducts((prev) => {
+        const exists = prev.some((p) => p.id === id);
+        if (exists) {
+          return prev.map((p) => (p.id === id ? updated : p));
+        }
+        // Si es producto nuevo, lo agrega al inicio de la lista
+        return [updated, ...prev];
+      });
+    } catch (err) {
+      console.error('Error al refrescar producto:', err);
+      // Fallback: si falla getById, recargamos todo
+      await fetchProducts();
+    }
+  };
+
+  const createProduct = async (
+    data: CreateProductDto,
+    shouldRefresh = true,
+  ): Promise<ProductDto> => {
     try {
       const product = await productApi.create(data);
-      await fetchProducts(); // Recargar lista
+      if (shouldRefresh) {
+        await refreshProduct(product.id);
+      }
       return product;
     } catch (err) {
       console.error('Error al crear producto:', err);
@@ -44,10 +76,16 @@ export function useProducts() {
     }
   };
 
-  const updateProduct = async (id: string, data: UpdateProductDto): Promise<ProductDto> => {
+  const updateProduct = async (
+    id: string,
+    data: UpdateProductDto,
+    shouldRefresh = true,
+  ): Promise<ProductDto> => {
     try {
       const product = await productApi.update(id, data);
-      await fetchProducts(); // Recargar lista
+      if (shouldRefresh) {
+        await refreshProduct(id);
+      }
       return product;
     } catch (err) {
       console.error('Error al actualizar producto:', err);
@@ -55,11 +93,73 @@ export function useProducts() {
     }
   };
 
+  const finalizeWizard = async (
+    id: string,
+    payload: FinalizeProductWizardDto,
+  ): Promise<ProductDto> => {
+    try {
+      const product = await productApi.finalizeWizard(id, payload);
+
+      setProducts((prev) => {
+        const exists = prev.some((p) => p.id === id);
+        const activePresentations = (payload.presentations || []).filter((p) => p.active ?? true);
+
+        if (exists) {
+          return prev.map((p) => {
+            if (p.id !== id) return p;
+            return {
+              ...p,
+              ...payload.product,
+              id,
+              name: payload.product.name ?? p.name,
+              slug: payload.product.slug ?? p.slug,
+              shortDescription: payload.product.shortDescription ?? p.shortDescription,
+              categoryId: payload.product.categoryId ?? p.categoryId,
+              featured: payload.product.featured ?? p.featured,
+              active: payload.product.active ?? p.active,
+              defaultPurchasePresentationId: product.defaultPurchasePresentationId,
+              defaultSalePresentationId: product.defaultSalePresentationId,
+              presentations: activePresentations.map((item) => ({
+                id: item.id || `tmp-${item.presentationTypeId}`,
+                productId: id,
+                presentationTypeId: item.presentationTypeId,
+                quantity: item.quantity,
+                barcode: item.barcode ?? null,
+                costPrice: item.costPrice,
+                salePrice: item.salePrice,
+                active: item.active ?? true,
+                createdAt: p.createdAt,
+                updatedAt: new Date(),
+              })),
+              updatedAt: new Date(),
+            };
+          });
+        }
+
+        return prev;
+      });
+
+      return product;
+    } catch (err) {
+      console.error('Error al finalizar wizard de producto:', err);
+      throw err;
+    }
+  };
+
+  const discardDraft = async (id: string): Promise<void> => {
+    try {
+      await productApi.discardDraft(id);
+      setProducts((prev) => prev.filter((p) => p.id !== id));
+    } catch (err) {
+      console.error('Error al descartar borrador de producto:', err);
+      throw err;
+    }
+  };
+
   const deleteProduct = async (id: string): Promise<void> => {
     try {
       await productApi.delete(id);
-      // Actualizar estado local sin hacer fetch al backend
-      setProducts(prevProducts => prevProducts.filter(product => product.id !== id));
+      setProducts((prev) => prev.filter((p) => p.id !== id));
     } catch (err) {
       console.error('Error al eliminar producto:', err);
       throw err;
@@ -75,8 +175,11 @@ export function useProducts() {
     loading,
     error,
     fetchProducts,
+    refreshProduct,
     createProduct,
     updateProduct,
+    finalizeWizard,
+    discardDraft,
     deleteProduct,
   };
 }

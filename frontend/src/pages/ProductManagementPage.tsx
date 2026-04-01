@@ -8,13 +8,11 @@ import { Plus, Search, Edit, Trash2, Package, DollarSign, AlertTriangle, Image }
 import { Button, Card, ConfirmDialog, SpinnerLoading } from '@/shared/ui';
 import { useToastContext } from '@/app/providers/toast';
 import { useProducts } from '@/entities/product/api/useProducts';
-import { usePresentations } from '@/entities/product/api/usePresentations';
 import { useCategories } from '@/entities/category/api/useCategories';
 import clsx from 'clsx';
 import { ProductFormData } from '@/features/product-management/ui/types';
 import { ProductWizard } from '@/features/product-management/ui/ProductWizard';
 import { ProductImageManager } from '@/features/product-management/ui/ProductImageManager';
-import { ApiError } from '@/shared/api';
 
 
 export function ProductManagementPage() {
@@ -25,19 +23,20 @@ export function ProductManagementPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<{ id: string; name: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  
+
   // Estado para el modal de imágenes
   const [isImageManagerOpen, setIsImageManagerOpen] = useState(false);
   const [selectedProductForImages, setSelectedProductForImages] = useState<{ id: string; name: string } | null>(null);
 
   const toast = useToastContext();
-  const { products, loading, createProduct, updateProduct, deleteProduct } = useProducts();
   const {
-    createPresentation,
-    updatePresentation,
-    deletePresentation,
-    fetchPresentationsByProduct,
-  } = usePresentations();
+    products,
+    loading,
+    createProduct,
+    deleteProduct,
+    finalizeWizard,
+    discardDraft,
+  } = useProducts();
   const { categories } = useCategories();
 
   // Filtrar productos
@@ -81,11 +80,11 @@ export function ProductManagementPage() {
     setIsDeleting(true);
     try {
       await deleteProduct(productToDelete.id);
-      
+
       // Cerrar modal y limpiar estado
       setIsDeleteDialogOpen(false);
       setProductToDelete(null);
-      
+
       // Mostrar notificación de éxito
       toast.success(
         'Producto eliminado',
@@ -100,7 +99,7 @@ export function ProductManagementPage() {
         response: error?.response?.data,
         timestamp: new Date().toISOString()
       });
-      
+
       // Re-lanzar para que ConfirmDialog lo muestre inline en el modal
       throw error;
     } finally {
@@ -111,6 +110,8 @@ export function ProductManagementPage() {
   // Guardar producto desde wizard
   const handleSaveProduct = async (data: ProductFormData): Promise<{ id: string }> => {
     try {
+      const isInitialCreate = !selectedProduct && !data.productId;
+
       // 1. Crear o actualizar producto
       const productData = {
         name: data.name,
@@ -125,88 +126,40 @@ export function ProductManagementPage() {
       let productId: string;
 
       if (selectedProduct) {
-        // Edit mode
-        const updatedProduct = await updateProduct(selectedProduct.id, {
-          id: selectedProduct.id,
-          ...productData,
-        });
-        productId = updatedProduct.id;
+        productId = selectedProduct.id;
       } else if (data.productId) {
-        // Producto creado previamente en paso 1
-        const updatedProduct = await updateProduct(data.productId, {
-          id: data.productId,
-          ...productData,
-        });
-        productId = updatedProduct.id;
+        productId = data.productId;
       } else {
-        // Crear nuevo producto
-        const newProduct = await createProduct(productData);
+        const newProduct = await createProduct(productData, false);
         productId = newProduct.id;
       }
 
-      // 2. Sincronizar presentaciones (add/update/delete)
-      const validPresentations = (data.presentations || []).filter(
-        (presentation) => Boolean(presentation.presentationTypeId),
-      );
-      const existingPresentations = await fetchPresentationsByProduct(productId);
-      const existingIds = new Set(existingPresentations.map((presentation) => presentation.id));
-      const submittedIds = new Set(
-        validPresentations
-          .map((presentation) => presentation.id)
-          .filter((id): id is string => Boolean(id)),
-      );
-
-      for (const presentation of validPresentations) {
-        if (presentation.id && existingIds.has(presentation.id)) {
-          await updatePresentation(presentation.id, {
-            id: presentation.id,
-            presentationTypeId: presentation.presentationTypeId,
-            quantity: presentation.quantity,
-            costPrice: presentation.costPrice,
-            salePrice: presentation.salePrice,
-            active: presentation.active ?? true,
-          });
-          continue;
-        }
-
-        if ((presentation.active ?? true) === false) {
-          continue;
-        }
-
-        await createPresentation({
-          productId,
-          presentationTypeId: presentation.presentationTypeId,
-          quantity: presentation.quantity,
-          barcode: presentation.barcode,
-          costPrice: presentation.costPrice,
-          salePrice: presentation.salePrice,
-          active: true,
-        });
+      // El primer guardado del wizard (paso 1) solo crea el producto.
+      // No se deben sincronizar presentaciones aqui para no eliminar la base "Unidad" auto-creada.
+      if (isInitialCreate) {
+        return { id: productId };
       }
 
-      for (const presentation of existingPresentations) {
-        if (!submittedIds.has(presentation.id)) {
-          try {
-            await deletePresentation(presentation.id);
-          } catch (error) {
-            if (error instanceof ApiError && error.status === 400) {
-              await updatePresentation(presentation.id, {
-                id: presentation.id,
-                active: false,
-              });
-              continue;
-            }
-
-            throw error;
-          }
-        }
-      }
+      await finalizeWizard(productId, {
+        product: {
+          id: productId,
+          ...productData,
+        },
+        presentations: data.presentations || [],
+        defaultPurchasePresentationIndex: data.defaultPurchasePresentationIndex,
+        defaultSalePresentationIndex: data.defaultSalePresentationIndex,
+      });
 
       return { id: productId };
     } catch (error) {
       console.error('Error al guardar:', error);
       throw error;
     }
+  };
+
+  const handleDiscardDraft = async (productId: string): Promise<void> => {
+    await discardDraft(productId);
+    toast.success('Borrador descartado', 'Se mantuvo la última versión confirmada en la base de datos.');
   };
 
   // Calcular precio de venta principal (de la primera presentación activa)
@@ -493,8 +446,12 @@ export function ProductManagementPage() {
       {/* Wizard */}
       <ProductWizard
         isOpen={isWizardOpen}
-        onClose={() => setIsWizardOpen(false)}
+        onClose={() => {
+          setIsWizardOpen(false);
+          setSelectedProduct(null);
+        }}
         onSave={handleSaveProduct}
+        onCancelDraft={handleDiscardDraft}
         initialData={selectedProduct}
         mode={selectedProduct ? 'edit' : 'create'}
       />

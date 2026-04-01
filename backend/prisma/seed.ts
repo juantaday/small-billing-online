@@ -162,21 +162,6 @@ async function main() {
           {
             presentationType: {
               connectOrCreate: {
-                where: { name: 'Unidad' },
-                create: { name: 'Unidad', active: true },
-              },
-            },
-            quantity: 1,
-            barcode: '7891234567001',
-            costPrice: 5.50,
-            lastCostPrice: 5.40,
-            averageCostPrice: 5.45,
-            salePrice: 8.99,
-            active: true,
-          },
-          {
-            presentationType: {
-              connectOrCreate: {
                 where: { name: 'x6 Unidades' },
                 create: { name: 'x6 Unidades', active: true },
               },

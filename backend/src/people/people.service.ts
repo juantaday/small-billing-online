@@ -1,16 +1,18 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
 import { CreatePeopleDto, PeopleDto } from '@small-billing/shared';
 import { LoggerService } from '../common/logger/logger.service';
+import { PrismaService } from '../prisma/prisma.service';
 
-const prisma = new PrismaClient();
 
 @Injectable()
 export class PeopleService {
-  constructor(private readonly logger: LoggerService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly logger: LoggerService,
+  ) {}
 
   async findAll(): Promise<PeopleDto[]> {
-    return prisma.people.findMany({
+    return this.prisma.people.findMany({
       orderBy: { dateRegistered: 'desc' },
     }) as Promise<PeopleDto[]>;
   }
@@ -18,7 +20,7 @@ export class PeopleService {
   async create(data: CreatePeopleDto): Promise<PeopleDto> {
     this.logger.log(`Creando persona: ${data.firstName} ${data.lastName || ''}`, 'PeopleService');
     
-    const people = await prisma.people.create({
+    const people = await this.prisma.people.create({
       data: {
         firstName: data.firstName,
         lastName: data.lastName,

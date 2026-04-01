@@ -5,8 +5,9 @@
 
 import { useState, useEffect } from 'react';
 import { X, ArrowLeft, ArrowRight, Check } from 'lucide-react';
-import { Stepper, Step, Button } from '@/shared/ui';
+import { Stepper, Step, Button, SpinnerLoading } from '@/shared/ui';
 import { useToastContext } from '@/app/providers/toast';
+import { usePresentations } from '@/entities/product/api/usePresentations';
 import { ProductFormData } from './types';
 import {
   Step1BasicInfo,
@@ -20,6 +21,7 @@ interface ProductWizardProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (data: ProductFormData) => Promise<{ id: string }>;
+  onCancelDraft?: (productId: string) => Promise<void>;
   initialData?: Partial<ProductFormData>;
   mode?: 'create' | 'edit';
 }
@@ -36,10 +38,37 @@ export function ProductWizard({
   isOpen,
   onClose,
   onSave,
+  onCancelDraft,
   initialData,
   mode = 'create',
 }: ProductWizardProps) {
   const toast = useToastContext();
+  const { fetchPresentationsByProduct } = usePresentations();
+
+  const mapPresentationToForm = (presentation: any, allPresentations: any[]) => {
+    const inferredTypeId = allPresentations.find(
+      (item) => item.id === presentation.presentationInferenceId,
+    )?.presentationTypeId;
+
+    return {
+      id: presentation.id,
+      presentationTypeId: presentation.presentationTypeId,
+      presentationTypeName: presentation.presentationType?.name,
+      presentationInferenceId: presentation.presentationInferenceId || null,
+      presentationInferenceTypeId: inferredTypeId || null,
+      baseUnitsQuantity: Number(presentation.baseUnitsQuantity || 1),
+      quantity: presentation.quantity,
+      barcode: presentation.barcode,
+      costPrice: Number(presentation.costPrice || 0),
+      salePrice: Number(presentation.salePrice || 0),
+      active: presentation.active ?? true,
+    };
+  };
+
+  const sortPresentationsByBaseUnits = (presentations: any[]) =>
+    [...presentations].sort(
+      (a, b) => Number(a.baseUnitsQuantity || 1) - Number(b.baseUnitsQuantity || 1),
+    );
 
   const buildFormData = (data?: Partial<ProductFormData>): ProductFormData => ({
     productId: data?.productId,
@@ -60,25 +89,24 @@ export function ProductWizard({
         id: presentation.id,
         active: presentation.active ?? true,
         presentationTypeId: presentation.presentationTypeId || '',
+        presentationInferenceId: presentation.presentationInferenceId || null,
+        presentationInferenceTypeId:
+          presentation.presentationInferenceTypeId ||
+          presentation.presentationInference?.presentationTypeId ||
+          ((presentation.presentationTypeName || presentation.presentationType?.name || '').trim().toLowerCase() ===
+          'unidad'
+            ? presentation.presentationTypeId
+            : null),
         presentationTypeName:
           presentation.presentationTypeName || presentation.presentationType?.name,
-      })) || [
-        {
-          id: undefined,
-          presentationTypeId: '',
-          quantity: 1,
-          barcode: null,
-          costPrice: 0,
-          salePrice: 0,
-          active: true,
-        },
-      ],
+      })) || [],
     defaultPurchasePresentationIndex: data?.defaultPurchasePresentationIndex || null,
     defaultSalePresentationIndex: data?.defaultSalePresentationIndex || null,
   });
 
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingPresentations, setIsLoadingPresentations] = useState(false);
 
   const [formData, setFormData] = useState<ProductFormData>(() => buildFormData(initialData));
 
@@ -96,10 +124,61 @@ export function ProductWizard({
   }, [isOpen, initialData, mode]);
 
   useEffect(() => {
-    console.log('🔍 [ProductWizard] Step changed to:', currentStep);
-    if (currentStep === 5) {
-      console.log('📦 [Step 5] Presentations:', formData.presentations.length);
-    }
+    if (!isOpen || mode !== 'edit') return;
+
+    const productId = (initialData?.productId || (initialData as any)?.id) as string | undefined;
+    if (!productId) return;
+
+    const loadPersistedPresentations = async () => {
+      try {
+        setIsLoadingPresentations(true);
+        const persistedPresentations = await fetchPresentationsByProduct(productId);
+
+        const mappedPresentations = sortPresentationsByBaseUnits(
+          persistedPresentations.map((presentation) =>
+            mapPresentationToForm(presentation, persistedPresentations),
+          ),
+        );
+
+        // Resolver índices basados en IDs guardados en la BD
+        const purchasePresentationId = (initialData as any)?.defaultPurchasePresentationId;
+        const salePresentationId = (initialData as any)?.defaultSalePresentationId;
+
+        const defaultPurchaseIndex = purchasePresentationId
+          ? mappedPresentations.findIndex(
+              (p) => p.id === purchasePresentationId,
+            )
+          : -1;
+
+        const defaultSaleIndex = salePresentationId
+          ? mappedPresentations.findIndex(
+              (p) => p.id === salePresentationId,
+            )
+          : -1;
+
+        setFormData((prev) => ({
+          ...prev,
+          productId,
+          presentations: mappedPresentations,
+          defaultPurchasePresentationIndex:
+            defaultPurchaseIndex >= 0 ? defaultPurchaseIndex : null,
+          defaultSalePresentationIndex: defaultSaleIndex >= 0 ? defaultSaleIndex : null,
+        }));
+      } catch (error) {
+        console.error('Error al cargar presentaciones del producto en edición:', error);
+        toast.error(
+          'No se pudieron cargar todas las presentaciones',
+          'Se muestran los datos disponibles en memoria.',
+        );
+      } finally {
+        setIsLoadingPresentations(false);
+      }
+    };
+
+    loadPersistedPresentations();
+  }, [isOpen, mode, initialData]);
+
+  useEffect(() => {
   }, [currentStep]);
 
   const updateField = (field: keyof ProductFormData, value: any) => {
@@ -108,7 +187,6 @@ export function ProductWizard({
 
   const goToStep = (step: number) => {
     if (step >= 1 && step <= STEPS.length) {
-      console.log(`🎯 [ProductWizard] Navigating to step ${step}`);
       setCurrentStep(step);
     }
   };
@@ -120,7 +198,16 @@ export function ProductWizard({
       try {
         setIsSubmitting(true);
         const createdProduct = await onSave(formData);
-        setFormData(prev => ({ ...prev, productId: createdProduct.id }));
+        const persistedPresentations = await fetchPresentationsByProduct(createdProduct.id);
+        setFormData((prev) => ({
+          ...prev,
+          productId: createdProduct.id,
+          presentations: sortPresentationsByBaseUnits(
+            persistedPresentations.map((presentation) =>
+              mapPresentationToForm(presentation, persistedPresentations),
+            ),
+          ),
+        }));
         goToStep(currentStep + 1);
       } catch (error) {
         console.error('Error al crear producto:', error);
@@ -146,7 +233,15 @@ export function ProductWizard({
       case 3:
         return (
           activePresentations.length > 0 &&
-          activePresentations.every((p) => !!p.presentationTypeId)
+          activePresentations.every(
+            (p) =>
+              !!p.presentationTypeId &&
+              p.quantity > 0 &&
+              (
+                p.presentationTypeName?.trim().toLowerCase() === 'unidad' ||
+                !!p.presentationInferenceTypeId
+              ),
+          )
         );
       case 4:
       case 5:
@@ -173,6 +268,26 @@ export function ProductWizard({
     }
   };
 
+  const handleCloseWizard = async () => {
+    const productId = formData.productId;
+    const shouldDiscardDraft = mode === 'create' && Boolean(productId);
+
+    if (shouldDiscardDraft && productId && onCancelDraft) {
+      setIsSubmitting(true);
+      try {
+        await onCancelDraft(productId);
+      } catch (error) {
+        console.error('Error al descartar borrador del wizard:', error);
+        toast.error('No se pudo descartar el borrador', 'Intenta nuevamente.');
+        setIsSubmitting(false);
+        return;
+      }
+      setIsSubmitting(false);
+    }
+
+    onClose();
+  };
+
   const generateSlug = (name: string) => {
     return name
       .toLowerCase()
@@ -190,6 +305,8 @@ export function ProductWizard({
   };
 
   if (!isOpen) return null;
+
+  const isBusy = isSubmitting || isLoadingPresentations;
 
   const renderStep = () => {
     switch (currentStep) {
@@ -230,10 +347,21 @@ export function ProductWizard({
     <div className="fixed inset-0 z-50 overflow-hidden">
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
+        onClick={handleCloseWizard}
       />
 
       <div className="absolute inset-y-0 right-0 w-full max-w-4xl bg-white dark:bg-gray-900 shadow-2xl flex flex-col">
+        {isBusy && (
+          <div className="absolute inset-0 z-20 bg-white/70 dark:bg-gray-900/70 backdrop-blur-[1px] flex items-center justify-center">
+            <div className="flex items-center gap-3 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-4 py-3 shadow-lg">
+              <SpinnerLoading size="md" />
+              <span className="text-sm font-medium text-gray-900 dark:text-white">
+                {isLoadingPresentations ? 'Cargando presentaciones...' : 'Guardando cambios...'}
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
           <div>
@@ -248,7 +376,8 @@ export function ProductWizard({
             </p>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleCloseWizard}
+            disabled={isBusy}
             className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
           >
             <X className="w-6 h-6" />
@@ -269,8 +398,8 @@ export function ProductWizard({
         <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
           <Button
             variant="secondary"
-            onClick={currentStep === 1 ? onClose : goBack}
-            disabled={isSubmitting}
+            onClick={currentStep === 1 ? handleCloseWizard : goBack}
+            disabled={isBusy}
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             {currentStep === 1 ? 'Cancelar' : 'Atrás'}
@@ -285,7 +414,7 @@ export function ProductWizard({
             {currentStep < STEPS.length && (
               <Button
                 onClick={goNext}
-                disabled={!validateCurrentStep() || isSubmitting}
+                disabled={!validateCurrentStep() || isBusy}
               >
                 {isSubmitting ? 'Guardando...' : 'Siguiente'}
                 {!isSubmitting && <ArrowRight className="w-4 h-4 ml-2" />}
@@ -296,7 +425,7 @@ export function ProductWizard({
             {currentStep === STEPS.length && (
               <Button
                 onClick={handleSave}
-                disabled={isSubmitting}
+                disabled={isBusy}
                 className="bg-success-600 hover:bg-success-700"
               >
                 <Check className="w-4 h-4 mr-2" />
