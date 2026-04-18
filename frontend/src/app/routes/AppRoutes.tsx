@@ -18,6 +18,8 @@ import { CategoriesPage } from '@/pages/CategoriesPage';
 import { OrdersPage } from '@/pages/OrdersPage';
 import CustomerCategoriesPage from '@/pages/CustomerCategoriesPage';
 import { PresentationTypesPage } from '@/pages/PresentationTypesPage';
+import { SettingsPage } from '@/pages/SettingsPage';
+import { SecurityDevicesPage } from '@/pages/SecurityDevicesPage';
 import { Register } from '@/pages/Register';
 
 function PrivateRoute({
@@ -144,6 +146,26 @@ export function AppRoutes() {
             <PrivateRoute allowedRoles={['Admin', 'SaleManager', 'Cajero', 'User', 'Customer']}>
               <MainLayout>
                 <OrdersPage />
+              </MainLayout>
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path={ROUTES.SETTINGS}
+          element={
+            <PrivateRoute allowedRoles={['Admin', 'SaleManager']}>
+              <MainLayout>
+                <SettingsPage />
+              </MainLayout>
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path={ROUTES.SECURITY_DEVICES}
+          element={
+            <PrivateRoute allowedRoles={['Admin', 'Security']}>
+              <MainLayout>
+                <SecurityDevicesPage />
               </MainLayout>
             </PrivateRoute>
           }

@@ -11,6 +11,7 @@ import {
   UpdateProductDto,
   ProductWithRelationsDto,
   FinalizeProductWizardDto,
+  QuickAddInventoryDto,
 } from '@small-billing/shared';
 
 class ProductApi extends BaseApiClient {
@@ -48,6 +49,19 @@ class ProductApi extends BaseApiClient {
 
   async discardDraft(id: string): Promise<{ success: boolean; hardDeleted: boolean }> {
     return this.deleteBase<{ success: boolean; hardDeleted: boolean }>(`/products/${id}/discard-draft`);
+  }
+
+  async quickAddInventory(
+    productId: string,
+    data: QuickAddInventoryDto,
+  ): Promise<{
+    productId: string;
+    stockBefore: number;
+    stockAfter: number;
+    addedBaseUnits: number;
+    factorToBase: number;
+  }> {
+    return this.post(`/products/${productId}/stock/quick-add`, data);
   }
 }
 

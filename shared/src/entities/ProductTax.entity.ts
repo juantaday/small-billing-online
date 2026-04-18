@@ -4,8 +4,8 @@ export interface ProductTaxSelectionDto {
   taxValueCode: string;
   taxValueDescription: string;
   percentage: number;
-  appliedRate?: number;
-  isDefaultVat?: boolean;
+  appliedRate: number;
+  isDefaultVat: boolean;
 }
 
 export interface ProductTaxDefaultDto {

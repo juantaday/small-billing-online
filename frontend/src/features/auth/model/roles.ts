@@ -1,6 +1,6 @@
 import { ROUTES } from '@/shared/config';
 
-export type AppRole = 'User' | 'Customer' | 'Admin' | 'SaleManager' | 'Cajero';
+export type AppRole = 'User' | 'Customer' | 'Admin' | 'SaleManager' | 'Cajero' | 'Security';
 
 export const APP_ROLES: AppRole[] = [
   'User',
@@ -8,6 +8,7 @@ export const APP_ROLES: AppRole[] = [
   'Admin',
   'SaleManager',
   'Cajero',
+  'Security',
 ];
 
 export const DEFAULT_APP_ROLE: AppRole = 'Admin';
@@ -23,6 +24,7 @@ export const ROUTE_ACCESS: Record<string, AppRole[]> = {
   [ROUTES.CUSTOMER_CATEGORIES]: ['Admin', 'SaleManager'],
   [ROUTES.REPORTS]: ['Admin', 'SaleManager'],
   [ROUTES.SETTINGS]: ['Admin'],
+  [ROUTES.SECURITY_DEVICES]: ['Admin', 'Security'],
 };
 
 export function canAccessRoute(role: AppRole, route: string): boolean {

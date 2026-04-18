@@ -4,7 +4,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  IdentityType,
   PaymentMethodType,
+  PersonType,
   Prisma,
   SaleStatus,
 } from '@prisma/client';
@@ -15,15 +17,73 @@ import {
   UpdateSaleDto,
 } from '@small-billing/shared';
 import { PrismaService } from '../prisma/prisma.service';
+import { LoggerService } from 'src/common/logger/logger.service';
+import { DeviceService } from '../device/device.service';
+import { TerminalSettingsService } from '../terminal-settings/terminal-settings.service';
 
 
-const DEFAULT_ESTABLISHMENT = '001';
-const DEFAULT_POINT_OF_SALE = '001';
+const DEFAULT_TERMINAL_CODE = 'CAJA_001';
+const CONSUMER_FINAL_RUC = '9999999999999';
+const CONSUMER_FINAL_CATEGORY_NAME = 'Usuario Final';
 
 function toNumber(value: Prisma.Decimal | number | null | undefined): number {
   if (value === null || value === undefined) return 0;
   if (typeof value === 'number') return value;
   return value.toNumber();
+}
+
+function round2(value: number): number {
+  return Number(value.toFixed(2));
+}
+
+function buildIncludedTaxBreakdown(
+  grossAmount: number,
+  productTaxes: Array<{
+    taxValueCode: string;
+    appliedRate: Prisma.Decimal | number;
+    taxValue: { code: string; description: string };
+  }>,
+): {
+  baseWithoutTaxes: number;
+  taxes: Array<{
+    taxCode: string;
+    taxDescription: string;
+    taxPercentage: number;
+    taxableAmount: number;
+    taxAmount: number;
+  }>;
+} {
+  let runningTotal = round2(grossAmount);
+  const taxes: Array<{
+    taxCode: string;
+    taxDescription: string;
+    taxPercentage: number;
+    taxableAmount: number;
+    taxAmount: number;
+  }> = [];
+
+  for (const productTax of productTaxes) {
+    const rate = toNumber(productTax.appliedRate);
+    if (rate <= 0) continue;
+
+    const taxableAmount = round2(runningTotal / (rate + 1));
+    const taxAmount = round2(runningTotal - taxableAmount);
+
+    taxes.push({
+      taxCode: productTax.taxValue.code,
+      taxDescription: productTax.taxValue.description,
+      taxPercentage: round2(rate * 100),
+      taxableAmount,
+      taxAmount,
+    });
+
+    runningTotal = taxableAmount;
+  }
+
+  return {
+    baseWithoutTaxes: runningTotal,
+    taxes,
+  };
 }
 
 function resolveFactorToBase(
@@ -56,7 +116,278 @@ function resolveFactorToBase(
 
 @Injectable()
 export class SaleService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly logger: LoggerService,
+    private readonly deviceService: DeviceService,
+    private readonly terminalSettingsService: TerminalSettingsService,
+  ) {}
+
+  private async resolveTerminalConfig(data: CreateSaleDto): Promise<{
+    terminalId: number;
+    establishment: string;
+    pointOfSale: string;
+    documentTypeId: number;
+  }> {
+    const requestedTerminalId = Number.isInteger(data.terminalId) ? data.terminalId : undefined;
+    const requestedTerminalCode = data.terminalCode?.trim();
+    const envTerminalCode = process.env.POS_TERMINAL_CODE?.trim();
+    const effectiveTerminalCode = requestedTerminalCode || envTerminalCode || DEFAULT_TERMINAL_CODE;
+    const requestedDocumentTypeId = Number.isInteger(data.documentTypeId)
+      ? data.documentTypeId
+      : 1;
+    const documentType = await this.prisma.documentType.findFirst({
+      where: {
+        id: requestedDocumentTypeId,
+        active: true,
+      },
+      select: { id: true },
+    });
+
+    if (!documentType) {
+      throw new BadRequestException(
+        `Tipo de documento con ID ${requestedDocumentTypeId} no existe o está inactivo.`,
+      );
+    }
+
+    const byId =
+      requestedTerminalId !== undefined
+        ? await this.prisma.terminal.findUnique({
+            where: { id: requestedTerminalId },
+            select: {
+              id: true,
+              code: true,
+              active: true,
+              emissionPoint: true,
+              warehouse: {
+                select: {
+                  establishmentCode: true,
+                  active: true,
+                },
+              },
+            },
+          })
+        : null;
+
+    const byCode = !byId
+      ? await this.prisma.terminal.findUnique({
+          where: { code: effectiveTerminalCode },
+          select: {
+            id: true,
+            code: true,
+            active: true,
+            emissionPoint: true,
+            warehouse: {
+              select: {
+                establishmentCode: true,
+                active: true,
+              },
+            },
+          },
+        })
+      : null;
+
+    const terminal = byId || byCode;
+
+    if (terminal && terminal.active && terminal.warehouse.active) {
+      return {
+        terminalId: terminal.id,
+        establishment: terminal.warehouse.establishmentCode,
+        pointOfSale: terminal.emissionPoint,
+        documentTypeId: documentType.id,
+      };
+    }
+
+    if (requestedTerminalId !== undefined || requestedTerminalCode || envTerminalCode) {
+      const invalidTerminalRef =
+        requestedTerminalId !== undefined
+          ? `ID ${requestedTerminalId}`
+          : `código ${effectiveTerminalCode}`;
+
+      throw new BadRequestException(
+        `Terminal ${invalidTerminalRef} no existe o está inactiva. Configura una terminal activa en la bodega correspondiente.`,
+      );
+    }
+
+    const activeTerminals = await this.prisma.terminal.findMany({
+      where: {
+        active: true,
+        warehouse: {
+          active: true,
+        },
+      },
+      select: {
+        id: true,
+        code: true,
+        active: true,
+        emissionPoint: true,
+        warehouse: {
+          select: {
+            establishmentCode: true,
+            active: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+      take: 2,
+    });
+
+    if (activeTerminals.length === 1) {
+      return {
+        terminalId: activeTerminals[0].id,
+        establishment: activeTerminals[0].warehouse.establishmentCode,
+        pointOfSale: activeTerminals[0].emissionPoint,
+        documentTypeId: documentType.id,
+      };
+    }
+
+    if (activeTerminals.length === 0) {
+      throw new BadRequestException(
+        'No hay terminales activas configuradas. Crea una bodega y una terminal (ej: CAJA_001 con punto de emisión 001).',
+      );
+    }
+
+    throw new BadRequestException(
+      'Existen múltiples terminales activas. Debes enviar terminalId o terminalCode en la venta para identificar desde qué equipo se emite la factura.',
+    );
+  }
+
+  private async ensureFinalConsumerCustomer(): Promise<string> {
+    const existingCustomer = await this.prisma.customer.findFirst({
+      where: {
+        active: true,
+        people: {
+          rucCi: CONSUMER_FINAL_RUC,
+        },
+      },
+      select: { id: true },
+    });
+
+    if (existingCustomer) {
+      return existingCustomer.id;
+    }
+
+    const category =
+      (await this.prisma.customerCategory.findFirst({
+        where: {
+          active: true,
+          name: CONSUMER_FINAL_CATEGORY_NAME,
+        },
+        select: { id: true },
+      })) ||
+      (await this.prisma.customerCategory.findFirst({
+        where: { active: true },
+        orderBy: { createdAt: 'asc' },
+        select: { id: true },
+      })) ||
+      (await this.prisma.customerCategory.create({
+        data: {
+          name: CONSUMER_FINAL_CATEGORY_NAME,
+          discountPercentage: 0,
+          pointsMultiplier: 1,
+          ticketThreshold: 10,
+          color: '#6B7280',
+          active: true,
+        },
+        select: { id: true },
+      }));
+
+    const people = await this.prisma.people.upsert({
+      where: { rucCi: CONSUMER_FINAL_RUC },
+      update: {
+        firstName: 'Consumidor',
+        lastName: 'Final',
+        personType: PersonType.NATURAL,
+        identityType: IdentityType.RUC,
+      },
+      create: {
+        firstName: 'Consumidor',
+        lastName: 'Final',
+        rucCi: CONSUMER_FINAL_RUC,
+        mainEmail: null,
+        phone: null,
+        address: null,
+        personType: PersonType.NATURAL,
+        identityType: IdentityType.RUC,
+      },
+      select: {
+        id: true,
+        customer: {
+          select: {
+            id: true,
+            active: true,
+          },
+        },
+      },
+    });
+
+    if (people.customer?.id) {
+      if (!people.customer.active) {
+        await this.prisma.customer.update({
+          where: { id: people.customer.id },
+          data: { active: true },
+        });
+      }
+
+      return people.customer.id;
+    }
+
+    const createdCustomer = await this.prisma.customer.create({
+      data: {
+        peopleId: people.id,
+        customerCategoryId: category.id,
+        totalPurchases: 0,
+        loyaltyPoints: 0,
+        lastPurchaseDate: null,
+        preferredPaymentMethod: null,
+        active: true,
+      },
+      select: { id: true },
+    });
+
+    return createdCustomer.id;
+  }
+
+  private async resolveCustomerId(data: CreateSaleDto): Promise<string> {
+    const requestedRucCi = data.customerRucCi?.trim();
+
+    if (!data.customerId && !requestedRucCi) {
+      throw new BadRequestException('Debes enviar customerId o customerRucCi');
+    }
+
+    if (requestedRucCi === CONSUMER_FINAL_RUC) {
+      return this.ensureFinalConsumerCustomer();
+    }
+
+    if (data.customerId) {
+      const byId = await this.prisma.customer.findUnique({
+        where: { id: data.customerId },
+        include: { people: true },
+      });
+
+      if (byId?.active) {
+        return byId.id;
+      }
+    }
+
+    if (requestedRucCi) {
+      const byRuc = await this.prisma.customer.findFirst({
+        where: {
+          active: true,
+          people: {
+            rucCi: requestedRucCi,
+          },
+        },
+        select: { id: true },
+      });
+
+      if (byRuc) {
+        return byRuc.id;
+      }
+    }
+
+    throw new NotFoundException('Cliente no encontrado o inactivo');
+  }
 
   async findAll(): Promise<SaleWithRelationsDto[]> {
     const sales = await this.prisma.sale.findMany({
@@ -73,6 +404,8 @@ export class SaleService {
       invoiceNumber: sale.invoiceNumber,
       customerId: sale.customerId,
       userId: sale.userId,
+      terminalId: sale.terminalId || undefined,
+      documentTypeId: sale.documentTypeId,
       subtotal: toNumber(sale.subtotal),
       taxAmount: toNumber(sale.taxAmount),
       total: toNumber(sale.total),
@@ -141,6 +474,8 @@ export class SaleService {
       invoiceNumber: sale.invoiceNumber,
       customerId: sale.customerId,
       userId: sale.userId,
+      terminalId: sale.terminalId || undefined,
+      documentTypeId: sale.documentTypeId,
       subtotal: toNumber(sale.subtotal),
       taxAmount: toNumber(sale.taxAmount),
       total: toNumber(sale.total),
@@ -199,13 +534,7 @@ export class SaleService {
       throw new BadRequestException('La venta debe contener al menos un método de pago');
     }
 
-    const customer = await this.prisma.customer.findUnique({
-      where: { id: data.customerId },
-    });
-
-    if (!customer || !customer.active) {
-      throw new NotFoundException('Cliente no encontrado o inactivo');
-    }
+    const customerId = await this.resolveCustomerId(data);
 
     const user = await this.prisma.user.findUnique({
       where: { id: data.userId },
@@ -213,6 +542,19 @@ export class SaleService {
 
     if (!user || !user.active) {
       throw new NotFoundException('Usuario no encontrado o inactivo');
+    }
+
+    const terminalConfig = await this.resolveTerminalConfig(data);
+
+    // Validar configuración de máximo de items
+    const itemCountValidation = await this.terminalSettingsService.validateItemCount(
+      terminalConfig.terminalId,
+      terminalConfig.documentTypeId,
+      data.details.length,
+    );
+
+    if (!itemCountValidation.valid) {
+      throw new BadRequestException(itemCountValidation.message || 'Número de items excede el máximo permitido');
     }
 
     const presentationIds = [...new Set(data.details.map((item) => item.presentationId))];
@@ -259,6 +601,7 @@ export class SaleService {
 
     let subtotal = 0;
     let taxAmount = 0;
+    let grossTotal = 0;
     const detailsToCreate: Array<any> = [];
     const taxesToCreate: Array<any> = [];
     const baseDiscountByProduct = new Map<string, number>();
@@ -287,8 +630,17 @@ export class SaleService {
       );
 
       const unitPrice = Number(detail.unitPrice ?? presentation.salePrice.toNumber());
-      const lineSubtotal = Number((unitPrice * detail.quantity).toFixed(2));
-      subtotal += lineSubtotal;
+      const lineGrossTotal = round2(unitPrice * detail.quantity);
+      const { baseWithoutTaxes, taxes } = buildIncludedTaxBreakdown(
+        lineGrossTotal,
+        presentation.product.productTaxes,
+      );
+
+      subtotal = round2(subtotal + baseWithoutTaxes);
+      grossTotal = round2(grossTotal + lineGrossTotal);
+      taxAmount = round2(
+        taxAmount + taxes.reduce((sum, lineTax) => round2(sum + lineTax.taxAmount), 0),
+      );
 
       detailsToCreate.push({
         presentationId: presentation.id,
@@ -296,50 +648,99 @@ export class SaleService {
         presentationName: presentation.presentationType.name,
         quantity: detail.quantity,
         unitPrice,
-        subtotal: lineSubtotal,
+        subtotal: lineGrossTotal,
       });
 
-      for (const productTax of presentation.product.productTaxes) {
-        const configuredPercent = Number(productTax.appliedRate.toNumber());
-        const lineTaxAmount = Number((lineSubtotal * configuredPercent).toFixed(2));
-        const normalizedPercent = Number((configuredPercent * 100).toFixed(2));
-
-        taxAmount += lineTaxAmount;
-
-        taxesToCreate.push({
+      taxesToCreate.push(
+        ...taxes.map((lineTax) => ({
           presentationId: presentation.id,
-          taxCode: productTax.taxValue.code,
-          taxDescription: productTax.taxValue.description,
-          taxPercentage: normalizedPercent,
-          taxableAmount: lineSubtotal,
-          taxAmount: lineTaxAmount,
-        });
-      }
+          taxCode: lineTax.taxCode,
+          taxDescription: lineTax.taxDescription,
+          taxPercentage: lineTax.taxPercentage,
+          taxableAmount: lineTax.taxableAmount,
+          taxAmount: lineTax.taxAmount,
+        })),
+      );
     }
 
     subtotal = Number(subtotal.toFixed(2));
     taxAmount = Number(taxAmount.toFixed(2));
+    grossTotal = Number(grossTotal.toFixed(2));
 
     const discount = Number((data.discount || 0).toFixed(2));
-    const total = Number((subtotal + taxAmount - discount).toFixed(2));
+    const total = Number((grossTotal - discount).toFixed(2));
 
     if (total <= 0) {
       throw new BadRequestException('El total de la venta debe ser mayor a cero');
     }
 
-    const paymentTotal = Number(
-      data.payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0).toFixed(2),
+    const normalizedPayments = data.payments.map((payment) => {
+      const amount = round2(Number(payment.amount || 0));
+      const cashReceived =
+        payment.cashReceived !== undefined && payment.cashReceived !== null
+          ? round2(Number(payment.cashReceived))
+          : undefined;
+      const parsedChange =
+        payment.change !== undefined && payment.change !== null
+          ? round2(Number(payment.change))
+          : undefined;
+
+      let normalizedAmount = amount;
+      let normalizedChange = parsedChange;
+
+      if (payment.paymentType === PaymentMethodType.CASH && cashReceived !== undefined) {
+        if (normalizedChange === undefined) {
+          normalizedChange = round2(Math.max(0, cashReceived - normalizedAmount));
+        }
+
+        // Compatibilidad con frontend: si amount llega como recibido, se normaliza al neto.
+        if (normalizedChange > 0 && normalizedAmount === cashReceived) {
+          normalizedAmount = round2(cashReceived - normalizedChange);
+        }
+      }
+
+      return {
+        ...payment,
+        amount: normalizedAmount,
+        cashReceived,
+        change: normalizedChange,
+      };
+    });
+
+    const paymentTotal = round2(
+      normalizedPayments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0),
+    );
+    const changeTotal = round2(
+      normalizedPayments.reduce((sum, payment) => sum + Number(payment.change || 0), 0),
+    );
+    const receivedTotal = round2(
+      normalizedPayments.reduce(
+        (sum, payment) =>
+          sum +
+          (payment.paymentType === PaymentMethodType.CASH
+            ? Number(payment.cashReceived ?? 0)
+            : Number(payment.amount || 0)),
+        0,
+      ),
     );
 
+    this.logger.info(receivedTotal, 'Total de pagos');
+    this.logger.info(paymentTotal, 'Total de pagos netos');
+    this.logger.info(changeTotal, 'Total de cambio');
+    this.logger.info(total, 'Total de la venta');
+
     if (paymentTotal !== total) {
+      this.logger.error(
+        `La suma neta de pagos (${paymentTotal}) debe ser igual al total (${total})`,
+      );
       throw new BadRequestException(
-        `La suma de métodos de pago (${paymentTotal}) debe ser igual al total (${total})`,
+        `La suma neta de pagos (${paymentTotal}) debe ser igual al total (${total})`,
       );
     }
 
     let creditAmount = 0;
 
-    for (const payment of data.payments) {
+    for (const payment of normalizedPayments) {
       if (payment.amount <= 0) {
         throw new BadRequestException('Cada método de pago debe tener monto mayor a cero');
       }
@@ -383,11 +784,11 @@ export class SaleService {
           : SaleStatus.PARTIAL_PAYMENT;
 
     const createdSale = await this.prisma.$transaction(async (tx) => {
-      const sequence = await tx.invoiceSequence.upsert({
+      const terminalSequenceSettings = await tx.terminalSettings.upsert({
         where: {
-          establishment_pointOfSale: {
-            establishment: DEFAULT_ESTABLISHMENT,
-            pointOfSale: DEFAULT_POINT_OF_SALE,
+          terminalId_documentTypeId: {
+            terminalId: terminalConfig.terminalId,
+            documentTypeId: terminalConfig.documentTypeId,
           },
         },
         update: {
@@ -396,19 +797,33 @@ export class SaleService {
           },
         },
         create: {
-          establishment: DEFAULT_ESTABLISHMENT,
-          pointOfSale: DEFAULT_POINT_OF_SALE,
+          terminalId: terminalConfig.terminalId,
+          documentTypeId: terminalConfig.documentTypeId,
+          maxItems: 100,
+          enabled: true,
           lastSequential: 1,
         },
       });
 
-      const invoiceNumber = `${DEFAULT_ESTABLISHMENT}-${DEFAULT_POINT_OF_SALE}-${String(sequence.lastSequential).padStart(9, '0')}`;
+      const invoiceNumber = `${terminalConfig.establishment}-${terminalConfig.pointOfSale}-${String(terminalSequenceSettings.lastSequential).padStart(9, '0')}`;
+
+      // Obtener ID del dispositivo si se proporcionó
+      let deviceId: string | undefined = undefined;
+      if (data.deviceToken) {
+        const device = await this.deviceService.getDeviceByToken(data.deviceToken);
+        deviceId = device.id;
+        // Actualizar última conexión del dispositivo
+        await this.deviceService.updateLastSeen(data.deviceToken);
+      }
 
       const sale = await tx.sale.create({
         data: {
           invoiceNumber,
-          customerId: data.customerId,
+          customerId,
           userId: data.userId,
+          terminalId: terminalConfig.terminalId,
+          documentTypeId: terminalConfig.documentTypeId,
+          deviceId,
           subtotal,
           taxAmount,
           total,
@@ -422,7 +837,7 @@ export class SaleService {
             create: taxesToCreate,
           },
           payments: {
-            create: data.payments.map((payment) => {
+            create: normalizedPayments.map((payment) => {
               const change =
                 payment.paymentType === PaymentMethodType.CASH && payment.cashReceived !== undefined
                   ? Number((payment.cashReceived - payment.amount).toFixed(2))
@@ -430,9 +845,9 @@ export class SaleService {
 
               return {
                 paymentType: payment.paymentType,
-                amount: Number(payment.amount.toFixed(2)),
+                amount: round2(Number(payment.amount)),
                 cashReceived: payment.cashReceived,
-                change,
+                change: payment.change !== undefined ? round2(Number(payment.change)) : change,
                 bankId: payment.bankId,
                 bankAccount: payment.bankAccount,
                 transferReference: payment.transferReference,
@@ -461,7 +876,20 @@ export class SaleService {
         },
       });
 
+      const productIdsToUpdate = Array.from(baseDiscountByProduct.keys());
+      const currentStocks = await tx.productStock.findMany({
+        where: { productId: { in: productIdsToUpdate } },
+        select: {
+          productId: true,
+          stock: true,
+        },
+      });
+      const stockByProductId = new Map(currentStocks.map((row) => [row.productId, row.stock]));
+
       for (const [productId, discountInBaseUnits] of baseDiscountByProduct.entries()) {
+        const stockBefore = stockByProductId.get(productId) ?? 0;
+        const stockAfter = stockBefore - discountInBaseUnits;
+
         await tx.productStock.update({
           where: { productId },
           data: {
@@ -470,10 +898,26 @@ export class SaleService {
             },
           },
         });
+
+        await tx.inventoryMovement.create({
+          data: {
+            productId,
+            userId: data.userId,
+            presentationId: null,
+            movementType: 'OUT',
+            source: 'SALE',
+            quantityInPresentation: discountInBaseUnits,
+            factorToBase: 1,
+            deltaBaseUnits: -discountInBaseUnits,
+            stockBefore,
+            stockAfter,
+            note: `Salida por venta ${invoiceNumber}`,
+          },
+        });
       }
 
       await tx.customer.update({
-        where: { id: data.customerId },
+        where: { id: customerId },
         data: {
           totalPurchases: {
             increment: total,
@@ -483,6 +927,9 @@ export class SaleService {
       });
 
       return sale;
+    }, {
+      maxWait: 15000,
+      timeout: 15000,
     });
 
     return {
@@ -490,6 +937,8 @@ export class SaleService {
       invoiceNumber: createdSale.invoiceNumber,
       customerId: createdSale.customerId,
       userId: createdSale.userId,
+      terminalId: createdSale.terminalId || undefined,
+      documentTypeId: createdSale.documentTypeId,
       subtotal: toNumber(createdSale.subtotal),
       taxAmount: toNumber(createdSale.taxAmount),
       total: toNumber(createdSale.total),
@@ -554,6 +1003,8 @@ export class SaleService {
         invoiceNumber: sale.invoiceNumber,
         customerId: sale.customerId,
         userId: sale.userId,
+        terminalId: sale.terminalId || undefined,
+        documentTypeId: sale.documentTypeId,
         subtotal: toNumber(sale.subtotal),
         taxAmount: toNumber(sale.taxAmount),
         total: toNumber(sale.total),

@@ -16,6 +16,8 @@ import {
   ShoppingCartIcon,
   PackagePlus,
   ChevronDown,
+  Settings,
+  ShieldCheck,
 } from 'lucide-react';
 import { ROUTES } from '@/shared/config';
 import { cn } from '@/shared/lib';
@@ -69,6 +71,8 @@ const navigationGroups: NavigationGroup[] = [
     title: 'Sistema',
     items: [
       { name: 'Dashboard', href: ROUTES.DASHBOARD, icon: LayoutDashboard },
+      { name: 'Configuración', href: ROUTES.SETTINGS, icon: Settings },
+      { name: 'Seguridad Equipos', href: ROUTES.SECURITY_DEVICES, icon: ShieldCheck },
     ],
   },
 ];

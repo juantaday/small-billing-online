@@ -3,12 +3,13 @@
  * Lista de pedido desde carrito con flujo de facturación
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Minus, Plus, Trash2, ShoppingCart } from 'lucide-react';
 import {
   CardType,
   CustomerCategoryDto,
   CustomerWithRelationsDto,
+  DocumentTypeDto,
   IdentityType,
   PaymentMethodType,
   PersonType,
@@ -18,10 +19,12 @@ import { useCart } from '@/features/cart';
 import { bankApi } from '@/entities/bank';
 import { customerApi } from '@/entities/customer';
 import { customerCategoryApi } from '@/entities/customer-category/api/customer-category-api';
+import { documentTypeApi } from '@/entities/document-type';
 import { saleApi } from '@/entities/sale';
-import { Button, Card, Input, Modal, ToastContainer, useToast } from '@/shared/ui';
+import { Button, Card, Input, Modal, SpinnerLoading, ToastContainer, useToast } from '@/shared/ui';
 import { formatCurrency, logger, resolveImageUrl } from '@/shared/lib';
 import { useToastContext } from '@/app/providers/toast/ToastProvider';
+import { ensureDeviceToken, getOrCreateDeviceToken, registerDevice } from '@/shared/device.util';
 
 interface PaymentDraft {
   id: string;
@@ -35,6 +38,9 @@ interface PaymentDraft {
   voucherNumber: string;
   notes: string;
 }
+
+const CONSUMER_FINAL_RUC = '9999999999999';
+const POS_TERMINAL_CODE_STORAGE_KEY = 'small-billing.pos.terminal-id';
 
 const CARD_OPTIONS: CardType[] = [
   CardType.VISA,
@@ -60,9 +66,29 @@ function makePaymentDraft(defaultAmount = ''): PaymentDraft {
   };
 }
 
+function round2(value: number): number {
+  return Number(value.toFixed(2));
+}
+
+function resolveTerminalCode(): string | undefined {
+  if (typeof window === 'undefined') return undefined;
+
+  const stored = localStorage.getItem(POS_TERMINAL_CODE_STORAGE_KEY)?.trim();
+  return stored ? stored : undefined;
+}
+
+function resolveDefaultDocumentTypeId(documentTypes: DocumentTypeDto[]): number {
+  const factura = documentTypes.find((docType) => docType.codSRI === '01');
+  if (factura) return factura.id;
+
+  if (documentTypes.length > 0) return documentTypes[0].id;
+
+  return 1;
+}
+
 export function OrdersPage() {
   const { role, user } = useAuth();
-  const { items, updateQuantity, removeItem, clearCart, total, itemCount } = useCart();
+  const { items, updateQuantity, removeItem, clearCart, total, itemCount, subtotalSinIva, taxSummary } = useCart();
   const { toasts, removeToast } = useToast();
   const { success, error } = useToastContext();
 
@@ -71,6 +97,7 @@ export function OrdersPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerWithRelationsDto | null>(null);
+  const [useFinalConsumer, setUseFinalConsumer] = useState(false);
   const [isResolvingCustomer, setIsResolvingCustomer] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -99,6 +126,8 @@ export function OrdersPage() {
   });
 
   const [banks, setBanks] = useState<Array<{ id: string; code: string; name: string }>>([]);
+  const [documentTypes, setDocumentTypes] = useState<DocumentTypeDto[]>([]);
+  const [selectedDocumentTypeId, setSelectedDocumentTypeId] = useState<number>(1);
   const [payments, setPayments] = useState<PaymentDraft[]>([makePaymentDraft(total.toFixed(2))]);
   const [notes, setNotes] = useState('');
 
@@ -107,20 +136,49 @@ export function OrdersPage() {
       payments.reduce((acc, payment) => {
         const value = Number(payment.amount || 0);
         if (Number.isNaN(value)) return acc;
-        return acc + value;
+        return round2(acc + value);
       }, 0),
     [payments],
   );
 
-  const pendingAmount = Number((total - paymentTotal).toFixed(2));
+  const pendingAmount = round2(total - paymentTotal);
+  const isModalBusy = isSearching || isSubmitting;
+  // Registrar el dispositivo POS al cargar la página
+  useEffect(() => {
+    const initializeDevice = async () => {
+      try {
+        const deviceToken = await ensureDeviceToken(
+          import.meta.env.VITE_API_URL || 'http://localhost:3000',
+          {
+            deviceName: 'POS_' + (user?.alias || 'Terminal'),
+          },
+        );
+        // Registrar el dispositivo en el backend
+        await registerDevice(
+          import.meta.env.VITE_API_URL || 'http://localhost:3000',
+          'POS_' + (user?.alias || 'Terminal'),
+        );
+        console.log('Device registered with token:', deviceToken.substring(0, 16) + '...');
+      } catch (err) {
+        logger.warn('Device registration failed, will retry on next sale', err);
+        // No tirar error - el dispositivo se registrará cuando haga la primera venta
+      }
+    };
+
+    if (user?.id) {
+      initializeDevice();
+    }
+  }, [user?.id, user?.alias]);
 
   const resetCheckout = () => {
     setSelectedCustomer(null);
+    setUseFinalConsumer(false);
     setSearchTerm('');
     setSearchResults([]);
     setShowCreateCustomer(false);
     setNotes('');
     setPayments([makePaymentDraft(total.toFixed(2))]);
+    setSelectedDocumentTypeId(resolveDefaultDocumentTypeId(documentTypes));
   };
 
   const openCheckout = async () => {
@@ -128,17 +186,20 @@ export function OrdersPage() {
     resetCheckout();
 
     try {
-      const [banksData, categoriesData] = await Promise.all([
+      const [banksData, categoriesData, documentTypesData] = await Promise.all([
         bankApi.getAll(),
         customerCategoryApi.getAll(),
+        documentTypeApi.getAll(),
       ]);
 
       setBanks(banksData);
       setCategories(categoriesData);
+      setDocumentTypes(documentTypesData);
+      setSelectedDocumentTypeId(resolveDefaultDocumentTypeId(documentTypesData));
       setNewCustomerCategoryId(categoriesData[0]?.id || '');
     } catch (checkoutError) {
       logger.error('Error loading checkout catalogs', checkoutError);
-      error('Error de carga', 'No se pudieron cargar bancos o categorías.');
+      error('Error de carga', 'No se pudieron cargar bancos, categorías o tipos de documento.');
     }
 
     if (role === 'Customer' && user?.id) {
@@ -159,8 +220,7 @@ export function OrdersPage() {
     }
   };
 
-  const searchCustomers = async () => {
-    const query = searchTerm.trim();
+  const fetchCustomers = async (query: string) => {
     if (!query) {
       setSearchResults([]);
       return;
@@ -170,15 +230,72 @@ export function OrdersPage() {
     try {
       const found = await customerApi.search(query);
       setSearchResults(found);
-      if (found.length === 0) {
-        success('Sin resultados', 'No se encontraron clientes, puedes crearlo ahora.');
-      }
     } catch (searchError) {
       logger.error('Error searching customers', searchError, { query });
       error('Error de búsqueda', 'No fue posible buscar clientes.');
     } finally {
       setIsSearching(false);
     }
+  };
+
+  const searchCustomers = async () => {
+    const query = searchTerm.trim();
+    if (!query) {
+      setSearchResults([]);
+      return;
+    }
+
+    if (query.length < 3) {
+      error('Búsqueda corta', 'Ingresa al menos 3 caracteres para buscar clientes.');
+      return;
+    }
+
+    await fetchCustomers(query);
+  };
+
+  useEffect(() => {
+    if (!isCheckoutOpen || selectedCustomer || useFinalConsumer) return;
+
+    const query = searchTerm.trim();
+    if (query.length < 3) {
+      setSearchResults([]);
+      return;
+    }
+
+    let active = true;
+    const timeoutId = window.setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const found = await customerApi.search(query);
+        if (!active) return;
+        setSearchResults(found);
+      } catch (searchError) {
+        if (!active) return;
+        logger.error('Error searching customers', searchError, { query });
+        error('Error de búsqueda', 'No fue posible buscar clientes.');
+      } finally {
+        if (active) {
+          setIsSearching(false);
+        }
+      }
+    }, 500);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timeoutId);
+    };
+  }, [searchTerm, isCheckoutOpen, selectedCustomer, useFinalConsumer, error]);
+
+  const clearSelectedCustomer = () => {
+    setSelectedCustomer(null);
+    setUseFinalConsumer(false);
+  };
+
+  const selectFinalConsumer = () => {
+    setSelectedCustomer(null);
+    setUseFinalConsumer(true);
+    setSearchTerm(CONSUMER_FINAL_RUC);
+    setSearchResults([]);
   };
 
   const createCustomerAndAssign = async () => {
@@ -232,8 +349,17 @@ export function OrdersPage() {
     }
 
     console.log('Validando datos de cliente y pagos antes de crear la venta');
-    if (!selectedCustomer?.id) {
-      error('Cliente requerido', 'Debes seleccionar o crear un cliente para facturar.');
+    if (!selectedCustomer?.id && !useFinalConsumer) {
+      error('Cliente requerido', 'Debes seleccionar un cliente o usar consumidor final para facturar.');
+      return;
+    }
+
+    const customerRucCi = useFinalConsumer
+      ? CONSUMER_FINAL_RUC
+      : selectedCustomer?.people?.rucCi?.trim();
+
+    if (!customerRucCi) {
+      error('Cliente inválido', 'No se pudo resolver el RUC/CI del cliente seleccionado.');
       return;
     }
 
@@ -244,10 +370,19 @@ export function OrdersPage() {
       return;
     }
 
+    if (!selectedDocumentTypeId) {
+      error('Tipo de documento requerido', 'Selecciona un tipo de documento para continuar.');
+      return;
+    }
+
     const parsedPayments = payments.map((payment) => ({
       paymentType: payment.paymentType,
-      amount: Number(payment.amount || 0),
-      cashReceived: payment.cashReceived ? Number(payment.cashReceived) : undefined,
+      amount: round2(Number(payment.amount || 0)),
+      cashReceived: payment.cashReceived.trim() !== '' ? round2(Number(payment.cashReceived)) : undefined,
+      change:
+        payment.paymentType === PaymentMethodType.CASH && payment.cashReceived.trim() !== ''
+          ? round2(Math.max(0, Number(payment.cashReceived) - Number(payment.amount || 0)))
+          : undefined,
       bankId: payment.bankId || undefined,
       bankAccount: payment.bankAccount || undefined,
       transferReference: payment.transferReference || undefined,
@@ -270,7 +405,7 @@ export function OrdersPage() {
             error('Efectivo inválido', 'Debes ingresar el valor recibido en efectivo.');
             return;
           }
-          if (payment.cashReceived < payment.amount) {
+          if (round2(payment.cashReceived) < round2(payment.amount)) {
             error('Efectivo insuficiente', 'El efectivo recibido no cubre el monto del pago.');
             return;
           }
@@ -292,7 +427,7 @@ export function OrdersPage() {
       }
     } catch (validationError) {
       error('Error de validación', 'Ocurrió un error al validar los métodos de pago.');
-      logger.error('Error validating payments in checkout', validationError); 
+      logger.error('Error validating payments in checkout', validationError);
     }
 
 
@@ -300,15 +435,25 @@ export function OrdersPage() {
     console.log('Todos los datos validados, procediendo a crear la venta con saleApi.create');
     setIsSubmitting(true);
     try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const deviceToken =
+        getOrCreateDeviceToken() ||
+        (await ensureDeviceToken(apiUrl, {
+          deviceName: 'POS_' + (user.alias || 'Terminal'),
+        }));
 
       console.log('Creando venta con los siguientes datos:')
       const created = await saleApi.create({
-        customerId: selectedCustomer.id,
+        customerId: useFinalConsumer ? undefined : selectedCustomer?.id,
+        customerRucCi,
         userId: user.id,
+        terminalCode: resolveTerminalCode(),
+        deviceToken, // Agregar token del dispositivo
+        documentTypeId: selectedDocumentTypeId,
         details: items.map((item) => ({
           presentationId: item.presentationId,
           quantity: item.quantity,
-          unitPrice: item.unitPrice,
+          unitPrice: round2(item.unitPrice),
         })),
         payments: parsedPayments,
         notes: notes || undefined,
@@ -319,7 +464,7 @@ export function OrdersPage() {
       success('Pedido facturado', `Factura ${created.invoiceNumber} registrada correctamente.`);
     } catch (checkoutError) {
       logger.error('Error creating sale from orders', checkoutError);
-      error('No se pudo facturar', checkoutError instanceof Error ? checkoutError.message : 'Intenta nuevamente.');
+      error('No se pudo facturar', checkoutError instanceof Error ? checkoutError.message : 'Intenta nuevamente.', 5000);
     } finally {
       setIsSubmitting(false);
     }
@@ -400,7 +545,7 @@ export function OrdersPage() {
 
                   <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800 flex justify-end">
                     <span className="font-semibold text-red-600 dark:text-red-400">
-                      Subtotal: {formatCurrency(item.unitPrice * item.quantity)}
+                      Subtotal: {formatCurrency(round2(item.unitPrice * item.quantity))}
                     </span>
                   </div>
                 </Card>
@@ -408,9 +553,23 @@ export function OrdersPage() {
             </div>
 
             <Card className="p-5 space-y-4">
-              <div className="flex items-center justify-between text-xl font-bold">
-                <span className="text-gray-900 dark:text-white">Total</span>
-                <span className="text-red-600 dark:text-red-400">{formatCurrency(total)}</span>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between text-gray-600 dark:text-gray-400">
+                  <span>Subtotal (sin IVA)</span>
+                  <span>{formatCurrency(subtotalSinIva)}</span>
+                </div>
+
+                {taxSummary.map((tax) => (
+                  <div key={tax.taxValueCode} className="flex justify-between text-gray-600 dark:text-gray-400">
+                    <span>{tax.taxValueDescription}</span>
+                    <span>{formatCurrency(tax.total)}</span>
+                  </div>
+                ))}
+
+                <div className="border-t pt-2 flex justify-between text-xl font-bold">
+                  <span className="text-gray-900 dark:text-white">Total</span>
+                  <span className="text-red-600 dark:text-red-400">{formatCurrency(total)}</span>
+                </div>
               </div>
 
               <Button fullWidth size="lg" onClick={openCheckout}>
@@ -421,26 +580,76 @@ export function OrdersPage() {
         )}
       </div>
 
+      {/* Modal de pago */}
       <Modal
         isOpen={isCheckoutOpen}
-        onClose={() => setIsCheckoutOpen(false)}
+        onClose={() => {
+          setIsCheckoutOpen(false);
+          setIsSearching(false);
+        }}
         title="Facturar pedido"
         size="2xl"
       >
         <div className="space-y-6">
+          <Card className="p-4 space-y-3">
+            <h3 className="font-semibold text-gray-900 dark:text-white">1. Tipo de documento</h3>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Documento
+              </label>
+              <select
+                value={selectedDocumentTypeId}
+                onChange={(event) => setSelectedDocumentTypeId(Number(event.target.value))}
+                className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white"
+              >
+                {documentTypes.map((docType) => (
+                  <option key={docType.id} value={docType.id}>
+                    {docType.documentName}
+                    {docType.codSRI ? ` (SRI ${docType.codSRI})` : ' (Interno)'}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="text-sm text-gray-600 dark:text-gray-400">
+              Máximo de items sugerido: {
+                documentTypes.find((docType) => docType.id === selectedDocumentTypeId)?.itemsAutoGenerate ?? 0
+              }
+            </div>
+          </Card>
+
           <Card className="p-4">
-            <h3 className="font-semibold text-gray-900 dark:text-white mb-3">1. Cliente</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-3">2. Cliente</h3>
 
             {isResolvingCustomer ? (
               <p className="text-sm text-gray-500">Resolviendo cliente del usuario autenticado...</p>
+            ) : useFinalConsumer ? (
+              <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 space-y-2">
+                <p className="font-medium text-green-800 dark:text-green-200">Consumidor Final</p>
+                <p className="text-sm text-green-700 dark:text-green-300">CI/RUC: {CONSUMER_FINAL_RUC}</p>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setUseFinalConsumer(false)}>
+                    Buscar otro cliente
+                  </Button>
+                </div>
+              </div>
             ) : selectedCustomer ? (
-              <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+              <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 space-y-2">
                 <p className="font-medium text-green-800 dark:text-green-200">
                   {selectedCustomer.people?.firstName} {selectedCustomer.people?.lastName}
                 </p>
                 <p className="text-sm text-green-700 dark:text-green-300">
                   CI/RUC: {selectedCustomer.people?.rucCi}
                 </p>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={clearSelectedCustomer}>
+                    Cambiar cliente
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={selectFinalConsumer}>
+                    Consumidor final
+                  </Button>
+                </div>
               </div>
             ) : (
               <div className="space-y-3">
@@ -453,7 +662,18 @@ export function OrdersPage() {
                   <Button onClick={searchCustomers} disabled={isSearching}>
                     Buscar
                   </Button>
+                  <Button variant="outline" onClick={selectFinalConsumer} disabled={isSearching}>
+                    Consumidor final
+                  </Button>
                 </div>
+
+                {searchTerm.trim().length > 0 && searchTerm.trim().length < 3 && (
+                  <p className="text-sm text-gray-500">Escribe al menos 3 caracteres para buscar.</p>
+                )}
+
+                {isSearching && (
+                  <div className="text-sm text-gray-500 dark:text-gray-400">Buscando clientes...</div>
+                )}
 
                 {searchResults.length > 0 && (
                   <div className="space-y-2 max-h-48 overflow-auto">
@@ -572,7 +792,7 @@ export function OrdersPage() {
 
           <Card className="p-4">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-gray-900 dark:text-white">2. Métodos de pago</h3>
+              <h3 className="font-semibold text-gray-900 dark:text-white">3. Métodos de pago</h3>
               <Button variant="outline" size="sm" onClick={addPaymentRow}>
                 Agregar método
               </Button>
@@ -580,11 +800,11 @@ export function OrdersPage() {
 
             <div className="space-y-4">
               {payments.map((payment) => {
-                const amount = Number(payment.amount || 0);
-                const cashReceived = Number(payment.cashReceived || 0);
+                const amount = round2(Number(payment.amount || 0));
+                const cashReceived = round2(Number(payment.cashReceived || 0));
                 const change =
                   payment.paymentType === PaymentMethodType.CASH
-                    ? Number((cashReceived - amount).toFixed(2))
+                    ? round2(Math.max(0, cashReceived - amount))
                     : 0;
 
                 return (
@@ -765,6 +985,19 @@ export function OrdersPage() {
           </div>
         </div>
       </Modal>
+
+      {/* Modal loading, running, searching */}
+      {isCheckoutOpen && isModalBusy && (
+        <div className="fixed inset-0 z-[70] bg-black/25 backdrop-blur-[1px] flex items-center justify-center">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl px-8 py-6 border border-gray-200 dark:border-gray-700">
+            <SpinnerLoading
+              size="md"
+              message={isSubmitting ? 'Guardando factura...' : 'Buscando clientes...'}
+              className="min-h-0"
+            />
+          </div>
+        </div>
+      )}
 
       <ToastContainer toasts={toasts} onClose={removeToast} />
     </>

@@ -6,6 +6,7 @@ export interface InvoiceSequenceDto {
   id: string;
   establishment: string;
   pointOfSale: string;
+  documentTypeId: number;
   lastSequential: number;
   createdAt: Date;
   updatedAt: Date;
@@ -14,6 +15,7 @@ export interface InvoiceSequenceDto {
 export interface CreateInvoiceSequenceDto {
   establishment: string;
   pointOfSale: string;
+  documentTypeId: number;
   lastSequential?: number;
 }
 

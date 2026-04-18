@@ -5,10 +5,11 @@
 
 import { useState } from 'react';
 import { Plus, Search, Edit, Trash2, Package, DollarSign, AlertTriangle, Image } from 'lucide-react';
-import { Button, Card, ConfirmDialog, SpinnerLoading } from '@/shared/ui';
+import { Button, Card, ConfirmDialog, SpinnerLoading, Modal } from '@/shared/ui';
 import { useToastContext } from '@/app/providers/toast';
 import { useProducts } from '@/entities/product/api/useProducts';
 import { useCategories } from '@/entities/category/api/useCategories';
+import { useAuth } from '@/features/auth';
 import clsx from 'clsx';
 import { ProductFormData } from '@/features/product-management/ui/types';
 import { ProductWizard } from '@/features/product-management/ui/ProductWizard';
@@ -28,7 +29,16 @@ export function ProductManagementPage() {
   const [isImageManagerOpen, setIsImageManagerOpen] = useState(false);
   const [selectedProductForImages, setSelectedProductForImages] = useState<{ id: string; name: string } | null>(null);
 
+  // Estado para ingreso rápido de inventario
+  const [isQuickInventoryOpen, setIsQuickInventoryOpen] = useState(false);
+  const [selectedProductForInventory, setSelectedProductForInventory] = useState<any>(null);
+  const [selectedPresentationForInventory, setSelectedPresentationForInventory] = useState('');
+  const [quickInventoryQuantity, setQuickInventoryQuantity] = useState('');
+  const [quickInventoryNote, setQuickInventoryNote] = useState('');
+  const [isSavingQuickInventory, setIsSavingQuickInventory] = useState(false);
+
   const toast = useToastContext();
+  const { user } = useAuth();
   const {
     products,
     loading,
@@ -36,8 +46,43 @@ export function ProductManagementPage() {
     deleteProduct,
     finalizeWizard,
     discardDraft,
+    quickAddInventory,
   } = useProducts();
   const { categories } = useCategories();
+
+  const resolveFactorToBase = (presentationId: string, presentations: any[]): number => {
+    const map = new Map(
+      (presentations || []).map((p: any) => [
+        p.id,
+        {
+          id: p.id,
+          quantity: Number(p.quantity || 1),
+          presentationInferenceId: p.presentationInferenceId || null,
+        },
+      ])
+    );
+    const cache = new Map<string, number>();
+
+    const resolve = (id: string, visited = new Set<string>()): number => {
+      const cached = cache.get(id);
+      if (cached !== undefined) return cached;
+
+      const node = map.get(id);
+      if (!node) return 1;
+      if (visited.has(id)) return 1;
+
+      visited.add(id);
+      const isBase = !node.presentationInferenceId || node.presentationInferenceId === node.id;
+      const factor = isBase
+        ? node.quantity
+        : node.quantity * resolve(node.presentationInferenceId, visited);
+      visited.delete(id);
+      cache.set(id, factor);
+      return factor;
+    };
+
+    return resolve(presentationId);
+  };
 
   // Filtrar productos
   const filteredProducts = products.filter((product) => {
@@ -65,6 +110,63 @@ export function ProductManagementPage() {
   const handleManageImages = (product: any) => {
     setSelectedProductForImages({ id: product.id, name: product.name });
     setIsImageManagerOpen(true);
+  };
+
+  // Abrir modal de ingreso rápido de inventario
+  const handleQuickInventory = (product: any) => {
+    const activePresentations = (product.presentations || []).filter((p: any) => p.active);
+    const defaultPresentationId =
+      product.defaultPurchasePresentationId || activePresentations[0]?.id || '';
+
+    setSelectedProductForInventory(product);
+    setSelectedPresentationForInventory(defaultPresentationId);
+    setQuickInventoryQuantity('');
+    setQuickInventoryNote('');
+    setIsQuickInventoryOpen(true);
+  };
+
+  const handleQuickInventorySubmit = async () => {
+    if (!selectedProductForInventory?.id) return;
+
+    const parsedQuantity = Number(quickInventoryQuantity);
+    if (!selectedPresentationForInventory) {
+      toast.error('Presentación requerida', 'Selecciona una presentación para ingresar inventario.');
+      return;
+    }
+
+    if (!Number.isInteger(parsedQuantity) || parsedQuantity <= 0) {
+      toast.error('Cantidad inválida', 'La cantidad debe ser un número entero mayor a cero.');
+      return;
+    }
+
+    setIsSavingQuickInventory(true);
+    try {
+      const result = await quickAddInventory(selectedProductForInventory.id, {
+        presentationId: selectedPresentationForInventory,
+        quantity: parsedQuantity,
+        userId: user?.id,
+        source: 'QUICK_ADD',
+        note: quickInventoryNote.trim() || undefined,
+      });
+
+      toast.success(
+        'Inventario actualizado',
+        `Se agregaron ${result.addedBaseUnits} unidades base al stock de ${selectedProductForInventory.name}.`
+      );
+
+      setIsQuickInventoryOpen(false);
+      setSelectedProductForInventory(null);
+      setSelectedPresentationForInventory('');
+      setQuickInventoryQuantity('');
+      setQuickInventoryNote('');
+    } catch (error: any) {
+      toast.error(
+        'Error al actualizar inventario',
+        error?.response?.message || error?.message || 'No se pudo registrar el ingreso rápido.'
+      );
+    } finally {
+      setIsSavingQuickInventory(false);
+    }
   };
 
   // Abrir modal de confirmación para eliminar
@@ -172,6 +274,20 @@ export function ProductManagementPage() {
   const getTotalStock = (product: any): number => {
     return product.presentations?.reduce((total: number, p: any) => total + Number(p.stock || 0), 0) || 0;
   };
+
+  const selectedPresentation = selectedProductForInventory?.presentations?.find(
+    (p: any) => p.id === selectedPresentationForInventory
+  );
+  const previewFactorToBase = selectedPresentationForInventory
+    ? resolveFactorToBase(
+        selectedPresentationForInventory,
+        selectedProductForInventory?.presentations || []
+      )
+    : 1;
+  const previewQuantity = Number(quickInventoryQuantity || 0);
+  const previewBaseUnits = Number.isFinite(previewQuantity)
+    ? Math.max(0, Math.floor(previewQuantity)) * previewFactorToBase
+    : 0;
 
   return (
     <div className="space-y-6">
@@ -364,6 +480,13 @@ export function ProductManagementPage() {
                             <Image className="w-4 h-4" />
                           </button>
                           <button
+                            onClick={() => handleQuickInventory(product)}
+                            className="text-primary-600 hover:text-primary-900 dark:text-primary-400 dark:hover:text-primary-300 p-1"
+                            title="Ingreso Rápido de Inventario"
+                          >
+                            <Plus className="w-4 h-4" />
+                          </button>
+                          <button
                             onClick={() => handleDeleteClick(product)}
                             className="text-danger-600 hover:text-danger-900 dark:text-danger-400 dark:hover:text-danger-300 p-1"
                             title="Eliminar"
@@ -484,6 +607,104 @@ export function ProductManagementPage() {
         variant="danger"
         isLoading={isDeleting}
       />
+
+      {/* Modal de ingreso rápido de inventario */}
+      <Modal
+        isOpen={isQuickInventoryOpen}
+        onClose={() => {
+          if (isSavingQuickInventory) return;
+          setIsQuickInventoryOpen(false);
+          setSelectedProductForInventory(null);
+        }}
+        title={`Ingreso Rápido: ${selectedProductForInventory?.name || ''}`}
+        size="md"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Presentación
+            </label>
+            <select
+              value={selectedPresentationForInventory}
+              onChange={(e) => setSelectedPresentationForInventory(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+            >
+              {(selectedProductForInventory?.presentations || [])
+                .filter((p: any) => p.active)
+                .map((presentation: any) => (
+                  <option key={presentation.id} value={presentation.id}>
+                    {presentation.presentationType?.name || 'Presentación'} (x{presentation.quantity})
+                  </option>
+                ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Cantidad a ingresar
+            </label>
+            <input
+              type="number"
+              min={1}
+              step={1}
+              value={quickInventoryQuantity}
+              onChange={(e) => setQuickInventoryQuantity(e.target.value)}
+              placeholder="Ej: 10"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Nota (opcional)
+            </label>
+            <input
+              type="text"
+              value={quickInventoryNote}
+              onChange={(e) => setQuickInventoryNote(e.target.value)}
+              placeholder="Ej: ingreso por reposición"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+            />
+          </div>
+
+          <div className="rounded-lg bg-gray-50 dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700">
+            <p className="text-sm text-gray-700 dark:text-gray-300">
+              Conversión automática: {Math.max(0, Math.floor(previewQuantity || 0))} x{' '}
+              {previewFactorToBase} = <span className="font-semibold">{previewBaseUnits}</span> unidades base
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              {selectedPresentation
+                ? `La presentación "${selectedPresentation.presentationType?.name || 'Seleccionada'}" se convierte automáticamente a unidades de stock.`
+                : 'Selecciona una presentación para ver la conversión.'}
+            </p>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                if (isSavingQuickInventory) return;
+                setIsQuickInventoryOpen(false);
+                setSelectedProductForInventory(null);
+              }}
+              disabled={isSavingQuickInventory}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleQuickInventorySubmit}
+              disabled={
+                isSavingQuickInventory ||
+                !selectedPresentationForInventory ||
+                !Number.isInteger(Number(quickInventoryQuantity)) ||
+                Number(quickInventoryQuantity) <= 0
+              }
+            >
+              {isSavingQuickInventory ? 'Guardando...' : 'Agregar Inventario'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

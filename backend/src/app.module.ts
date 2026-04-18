@@ -16,6 +16,12 @@ import { CreditModule } from './credit/credit.module';
 import { LoggerModule } from './common/logger/logger.module';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 import { LoggerService } from './common/logger/logger.service';
+import { DeviceModule } from './device/device.module';
+import { TerminalSettingsModule } from './terminal-settings/terminal-settings.module';
+import { DocumentTypeModule } from './document-type/document-type.module';
+import { WarehouseModule } from './warehouse/warehouse.module';
+import { TerminalModule } from './terminal/terminal.module';
+import { InvoiceSequenceModule } from './invoice-sequence/invoice-sequence.module';
 
 @Module({
   imports: [
@@ -33,6 +39,12 @@ import { LoggerService } from './common/logger/logger.service';
     RewardModule,
     SaleModule,
     CreditModule,
+    DeviceModule,
+    TerminalSettingsModule,
+    DocumentTypeModule,
+    WarehouseModule,
+    TerminalModule,
+    InvoiceSequenceModule,
   ],
   providers: [
     {

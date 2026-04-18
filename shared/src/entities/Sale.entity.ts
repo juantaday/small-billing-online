@@ -4,6 +4,12 @@
 
 import { SaleStatus, PaymentMethodType, CardType } from '../enums';
 
+export enum LogoSize {
+  SMALL = 'SMALL',
+  MEDIUM = 'MEDIUM',
+  LARGE = 'LARGE',
+}
+
 // ===== Sale Detail =====
 export interface SaleDetailDto {
   id: string;
@@ -87,6 +93,9 @@ export interface SaleDto {
   invoiceNumber: string;
   customerId: string;
   userId: string;
+  terminalId?: number;
+  documentTypeId: number;
+  deviceId?: string;
   subtotal: number;
   taxAmount: number;
   total: number;
@@ -99,8 +108,13 @@ export interface SaleDto {
 }
 
 export interface CreateSaleDto {
-  customerId: string;
+  customerId?: string;
+  customerRucCi?: string;
   userId: string;
+  terminalId?: number;
+  terminalCode?: string;
+  deviceToken?: string; // Token del dispositivo que origina la venta
+  documentTypeId?: number; // Tipo de documento (por defecto 1 = Factura)
   details: CreateSaleDetailDto[];
   payments: CreateSalePaymentDto[];
   discount?: number;
@@ -118,3 +132,109 @@ export interface SaleWithRelationsDto extends SaleDto {
   payments?: SalePaymentDto[];
   productTaxes?: SaleProductTaxDto[];
 }
+
+// ===== Device (POS Equipment) =====
+export interface DeviceDto {
+  id: string;
+  tokenLast4: string;
+  tokenVersion: number;
+  status: 'PENDING' | 'PAIRED' | 'REVOKED' | 'RETIRED';
+  pairingCode?: string | null;
+  pairingCodeExpiresAt?: Date | null;
+  fingerprintSignal?: string | null;
+  riskScore: number;
+  deviceName?: string;
+  ipAddress?: string;
+  terminalId?: number;
+  active: boolean;
+  tokenIssuedAt: Date;
+  tokenRotatedAt?: Date | null;
+  tokenRevokedAt?: Date | null;
+  revokeReason?: string | null;
+  lastSeen: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CreateDeviceDto {
+  deviceToken: string;
+  deviceName?: string;
+  ipAddress?: string;
+}
+
+export interface RegisterDeviceDto {
+  deviceToken: string;
+  deviceName?: string;
+  fingerprintSignal?: string;
+  riskSignals?: Record<string, unknown>;
+}
+
+export interface DeviceEnrollmentRequestDto {
+  deviceName?: string;
+  fingerprintSignal?: string;
+  riskSignals?: Record<string, unknown>;
+}
+
+export interface DeviceEnrollmentResponseDto {
+  id: string;
+  deviceToken: string;
+  tokenLast4: string;
+  pairingCode: string;
+  pairingCodeExpiresAt: Date;
+  status: 'PENDING' | 'PAIRED' | 'REVOKED' | 'RETIRED';
+}
+
+export interface BindTerminalByPairingDto {
+  terminalId: number;
+  pairingCode: string;
+}
+
+export interface RotateDeviceTokenResponseDto {
+  id: string;
+  tokenVersion: number;
+  tokenRotatedAt: Date;
+  deviceToken: string;
+  tokenLast4: string;
+}
+
+export interface RevokeDeviceDto {
+  reason?: string;
+}
+
+// ===== Terminal Settings =====
+export interface TerminalSettingsDto {
+  id: string;
+  terminalId: number;
+  documentTypeId: number;
+  namePrinter?: string;
+  characterLine?: number;
+  withLogo?: LogoSize;
+  maxItems: number;
+  linesPerTransaction?: number;
+  lastSequential: number;
+  enabled: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CreateTerminalSettingsDto {
+  terminalId: number;
+  documentTypeId: number;
+  namePrinter?: string;
+  characterLine?: number;
+  withLogo?: LogoSize;
+  maxItems?: number;
+  linesPerTransaction?: number;
+  lastSequential?: number;
+}
+
+export interface UpdateTerminalSettingsDto {
+  namePrinter?: string;
+  characterLine?: number;
+  withLogo?: LogoSize;
+  maxItems?: number;
+  linesPerTransaction?: number;
+  lastSequential?: number;
+  enabled?: boolean;
+}
+

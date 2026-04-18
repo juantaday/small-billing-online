@@ -27,6 +27,7 @@ export const ROUTES = {
   ORDERS: '/orders',
   REPORTS: '/reports',
   SETTINGS: '/settings',
+  SECURITY_DEVICES: '/security/devices',
   LOGIN: '/login',
   REGISTER: '/register',
 } as const;

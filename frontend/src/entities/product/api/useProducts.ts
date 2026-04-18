@@ -11,6 +11,7 @@ import {
   UpdateProductDto,
   ProductWithRelationsDto,
   FinalizeProductWizardDto,
+  QuickAddInventoryDto,
 } from '@small-billing/shared';
 
 export function useProducts() {
@@ -166,6 +167,26 @@ export function useProducts() {
     }
   };
 
+  const quickAddInventory = async (
+    productId: string,
+    payload: QuickAddInventoryDto,
+  ): Promise<{
+    productId: string;
+    stockBefore: number;
+    stockAfter: number;
+    addedBaseUnits: number;
+    factorToBase: number;
+  }> => {
+    try {
+      const result = await productApi.quickAddInventory(productId, payload);
+      await fetchProducts();
+      return result;
+    } catch (err) {
+      console.error('Error al ingresar inventario rápido:', err);
+      throw err;
+    }
+  };
+
   useEffect(() => {
     fetchProducts();
   }, []);
@@ -181,5 +202,6 @@ export function useProducts() {
     finalizeWizard,
     discardDraft,
     deleteProduct,
+    quickAddInventory,
   };
 }

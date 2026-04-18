@@ -28,6 +28,7 @@ import {
   UpdateProductImageDto,
   ReorderImagesDto,
   FinalizeProductWizardDto,
+  QuickAddInventoryDto,
 } from '@small-billing/shared';
 
 interface HttpRequestLike {
@@ -116,6 +117,28 @@ export class ProductController {
   @Delete(':id/discard-draft')
   async discardDraft(@Param('id') id: string): Promise<{ success: boolean; hardDeleted: boolean }> {
     return this.productService.discardDraft(id);
+  }
+
+  @Post(':id/stock/quick-add')
+  async quickAddInventory(
+    @Param('id') id: string,
+    @Body() body: QuickAddInventoryDto,
+  ): Promise<{
+    productId: string;
+    stockBefore: number;
+    stockAfter: number;
+    addedBaseUnits: number;
+    factorToBase: number;
+  }> {
+    return this.productService.quickAddInventory(id, body);
+  }
+
+  @Get(':id/inventory-movements')
+  async getInventoryMovements(
+    @Param('id') id: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.productService.getInventoryMovements(id, limit ? Number(limit) : undefined);
   }
 
   // ─── Imágenes ────────────────────────────────────────────────────────────────

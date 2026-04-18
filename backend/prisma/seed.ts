@@ -11,6 +11,165 @@ async function main() {
   // 0. Taxes (SRI Ecuador)
   await seedTaxes(prisma);
 
+  // 0.1 Document Types
+  console.log('Creating document types...');
+  await Promise.all([
+    prisma.documentType.upsert({
+      where: { id: 1 },
+      update: {
+        documentName: 'Factura',
+        itemsAutoGenerate: 37,
+        indefinite: false,
+        documentCategoryId: 1,
+        idGroupNumeration: 1,
+        codSRI: '01',
+        active: true,
+      },
+      create: {
+        id: 1,
+        documentName: 'Factura',
+        itemsAutoGenerate: 37,
+        indefinite: false,
+        documentCategoryId: 1,
+        idGroupNumeration: 1,
+        codSRI: '01',
+        active: true,
+      },
+    }),
+    prisma.documentType.upsert({
+      where: { id: 2 },
+      update: {
+        documentName: 'Nota de venta',
+        itemsAutoGenerate: 37,
+        indefinite: false,
+        documentCategoryId: 1,
+        idGroupNumeration: 2,
+        codSRI: null,
+        active: true,
+      },
+      create: {
+        id: 2,
+        documentName: 'Nota de venta',
+        itemsAutoGenerate: 37,
+        indefinite: false,
+        documentCategoryId: 1,
+        idGroupNumeration: 2,
+        codSRI: null,
+        active: true,
+      },
+    }),
+    prisma.documentType.upsert({
+      where: { id: 3 },
+      update: {
+        documentName: 'Proforma',
+        itemsAutoGenerate: 0,
+        indefinite: true,
+        documentCategoryId: 1,
+        idGroupNumeration: 2,
+        codSRI: null,
+        active: true,
+      },
+      create: {
+        id: 3,
+        documentName: 'Proforma',
+        itemsAutoGenerate: 0,
+        indefinite: true,
+        documentCategoryId: 1,
+        idGroupNumeration: 2,
+        codSRI: null,
+        active: true,
+      },
+    }),
+    prisma.documentType.upsert({
+      where: { id: 4 },
+      update: {
+        documentName: 'Guia de remision',
+        itemsAutoGenerate: 10,
+        indefinite: true,
+        documentCategoryId: 1,
+        idGroupNumeration: 1,
+        codSRI: '06',
+        active: true,
+      },
+      create: {
+        id: 4,
+        documentName: 'Guia de remision',
+        itemsAutoGenerate: 10,
+        indefinite: true,
+        documentCategoryId: 1,
+        idGroupNumeration: 1,
+        codSRI: '06',
+        active: true,
+      },
+    }),
+    prisma.documentType.upsert({
+      where: { id: 5 },
+      update: {
+        documentName: 'Nota de credito',
+        itemsAutoGenerate: 37,
+        indefinite: false,
+        documentCategoryId: 1,
+        idGroupNumeration: 1,
+        codSRI: '04',
+        active: true,
+      },
+      create: {
+        id: 5,
+        documentName: 'Nota de credito',
+        itemsAutoGenerate: 37,
+        indefinite: false,
+        documentCategoryId: 1,
+        idGroupNumeration: 1,
+        codSRI: '04',
+        active: true,
+      },
+    }),
+    prisma.documentType.upsert({
+      where: { id: 6 },
+      update: {
+        documentName: 'Nota de debito',
+        itemsAutoGenerate: 37,
+        indefinite: false,
+        documentCategoryId: 1,
+        idGroupNumeration: 1,
+        codSRI: '05',
+        active: true,
+      },
+      create: {
+        id: 6,
+        documentName: 'Nota de debito',
+        itemsAutoGenerate: 37,
+        indefinite: false,
+        documentCategoryId: 1,
+        idGroupNumeration: 1,
+        codSRI: '05',
+        active: true,
+      },
+    }),
+    prisma.documentType.upsert({
+      where: { id: 7 },
+      update: {
+        documentName: 'Comprobante de retencion',
+        itemsAutoGenerate: 37,
+        indefinite: false,
+        documentCategoryId: 1,
+        idGroupNumeration: 1,
+        codSRI: '07',
+        active: true,
+      },
+      create: {
+        id: 7,
+        documentName: 'Comprobante de retencion',
+        itemsAutoGenerate: 37,
+        indefinite: false,
+        documentCategoryId: 1,
+        idGroupNumeration: 1,
+        codSRI: '07',
+        active: true,
+      },
+    }),
+  ]);
+
   // 1. Customer Categories
   console.log('Creating customer categories...');
   const categories = await Promise.all([

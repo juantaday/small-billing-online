@@ -6,18 +6,47 @@ import {
   CreateProductDto,
   ProductDto,
   ProductTaxSelectionDto,
+  QuickAddInventoryDto,
   UpdateProductDto,
   ProductWithRelationsDto,
   FinalizeProductWizardDto,
   FinalizeProductWizardPresentationDto,
 } from '@small-billing/shared';
 
+function resolveFactorToBase(
+  presentationId: string,
+  map: Map<string, { id: string; quantity: number; presentationInferenceId: string | null }>,
+  cache: Map<string, number>,
+  visited: Set<string> = new Set(),
+): number {
+  const cached = cache.get(presentationId);
+  if (cached !== undefined) return cached;
+
+  const node = map.get(presentationId);
+  if (!node) return 1;
+
+  if (visited.has(presentationId)) {
+    throw new BadRequestException('Existe una referencia circular en presentaciones');
+  }
+
+  visited.add(presentationId);
+
+  const isBase = !node.presentationInferenceId || node.presentationInferenceId === node.id;
+  const factor = isBase
+    ? node.quantity
+    : node.quantity * resolveFactorToBase(node.presentationInferenceId, map, cache, visited);
+
+  visited.delete(presentationId);
+  cache.set(presentationId, factor);
+  return factor;
+}
+
 @Injectable()
 export class ProductService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly logger: LoggerService,
-  ) {}
+  ) { }
 
   // ─── Helpers privados ────────────────────────────────────────────────────────
 
@@ -139,6 +168,7 @@ export class ProductService {
         taxValueCode: item.taxValueCode,
         taxValueDescription: item.taxValue.description,
         percentage: this.toNumber(item.taxValue.percentage),
+        appliedRate: this.toNumber(item.taxValue.percentage) / 100, 
         isDefaultVat: item.taxGroup === 'IVA',
       }));
     }
@@ -152,6 +182,7 @@ export class ProductService {
         taxValueCode: fallbackIva.code,
         taxValueDescription: fallbackIva.description,
         percentage: this.toNumber(fallbackIva.percentage),
+        appliedRate: this.toNumber(fallbackIva.percentage) / 100,
         isDefaultVat: true,
       },
     ];
@@ -814,13 +845,13 @@ export class ProductService {
 
         const selectedPurchaseTypeId =
           payload.defaultPurchasePresentationIndex !== null &&
-          payload.defaultPurchasePresentationIndex >= 0
+            payload.defaultPurchasePresentationIndex >= 0
             ? activeWizardPresentations[payload.defaultPurchasePresentationIndex]?.presentationTypeId
             : undefined;
 
         const selectedSaleTypeId =
           payload.defaultSalePresentationIndex !== null &&
-          payload.defaultSalePresentationIndex >= 0
+            payload.defaultSalePresentationIndex >= 0
             ? activeWizardPresentations[payload.defaultSalePresentationIndex]?.presentationTypeId
             : undefined;
 
@@ -897,5 +928,125 @@ export class ProductService {
 
       throw error;
     }
+  }
+
+  // actualiza inventario de manera rápida, sumando unidades a stock actual sin necesidad de detallar movimiento completo (ej: compra)
+  async quickAddInventory(
+    productId: string,
+    payload: QuickAddInventoryDto,
+  ): Promise<{
+    productId: string;
+    stockBefore: number;
+    stockAfter: number;
+    addedBaseUnits: number;
+    factorToBase: number;
+  }> {
+
+    if (!payload?.presentationId) {
+      throw new BadRequestException('Debe seleccionar una presentación para el ingreso rápido');
+    }
+
+    const parsedQuantity = Number(payload.quantity);
+    if (!Number.isInteger(parsedQuantity) || parsedQuantity <= 0) {
+      throw new BadRequestException('La cantidad a ingresar debe ser mayor a cero');
+    }
+
+    const source = payload.source || 'QUICK_ADD';
+
+    // PASO 1 — Todo el cálculo FUERA de la transacción
+    const product = await this.prisma.product.findUnique({
+      where: { id: productId },
+      select: {
+        id: true,
+        active: true,
+        productStock: {
+          select: { stock: true },
+        },
+        presentations: {
+          where: { id: payload.presentationId, active: true },
+          select: {
+            id: true,
+            baseUnitsQuantity: true,
+          },
+        },
+      },
+    });
+
+    if (!product || !product.active) {
+      throw new NotFoundException(`Producto "${productId}" no encontrado o inactivo`);
+    }
+
+    const selectedPresentation = product.presentations[0];
+    if (!selectedPresentation) {
+      throw new BadRequestException('La presentación no pertenece al producto o está inactiva');
+    }
+
+    if (!product.productStock) {
+      throw new BadRequestException('El producto no tiene configuración de stock');
+    }
+
+    // PASO 2 — Cálculo directo, sin recursividad (igual que el SP antiguo)
+    // Equivalente a: (@quantity * @empaquetEntrante) / @empaquetBodega
+    // Como el stock siempre está en unidades base, @empaquetBodega = 1
+    const factorToBase = selectedPresentation.baseUnitsQuantity; // ej: bulto=48, paquete=12, unidad=1
+    const addedBaseUnits = parsedQuantity * factorToBase;        // ej: 2 bultos * 48 = 96 unidades
+    const stockBefore = product.productStock.stock;
+    const stockAfter = stockBefore + addedBaseUnits;
+
+    // ✅ PASO 3 — Transacción SOLO con escrituras, dura milisegundos
+    await this.prisma.$transaction(async (tx) => {
+      await tx.productStock.update({
+        where: { productId },
+        data: { stock: { increment: addedBaseUnits } },
+      });
+
+      await tx.inventoryMovement.create({
+        data: {
+          productId,
+          userId: payload.userId || null,
+          presentationId: selectedPresentation.id,
+          movementType: 'IN',
+          source,
+          quantityInPresentation: parsedQuantity,
+          factorToBase,
+          deltaBaseUnits: addedBaseUnits,
+          stockBefore,
+          stockAfter,
+          note: payload.note?.trim() || null,
+        },
+      });
+    });
+
+    return { productId, stockBefore, stockAfter, addedBaseUnits, factorToBase };
+  }
+
+  async getInventoryMovements(productId: string, limit = 50) {
+    const boundedLimit = Math.max(1, Math.min(200, Number(limit) || 50));
+
+    return this.prisma.inventoryMovement.findMany({
+      where: { productId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        presentation: {
+          include: {
+            presentationType: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: boundedLimit,
+    });
   }
 }

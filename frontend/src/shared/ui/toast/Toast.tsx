@@ -27,7 +27,7 @@ const ICONS = {
 
 const STYLES = {
   success: 'bg-success-50 dark:bg-success-900/20 border-success-200 dark:border-success-800',
-  error: 'bg-danger-50 dark:bg-danger-900/20 border-danger-200 dark:border-danger-800',
+  error: 'bg-danger-50 dark:bg-danger-900/60 border-danger-200 dark:border-danger-800',
   warning: 'bg-warning-50 dark:bg-warning-900/20 border-warning-200 dark:border-warning-800',
   info: 'bg-info-50 dark:bg-info-900/20 border-info-200 dark:border-info-800',
 };

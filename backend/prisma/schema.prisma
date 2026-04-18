@@ -11,6 +11,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ==================== ENUMS ====================
@@ -50,6 +51,25 @@ enum TaxDefaultGroup {
   IVA
   ICE
   IRBPNR
+}
+
+enum InventoryMovementType {
+  IN
+  OUT
+}
+
+enum InventoryMovementSource {
+  QUICK_ADD
+  SALE
+  PURCHASE_INVOICE
+  ADJUSTMENT
+}
+
+enum DeviceStatus {
+  PENDING
+  PAIRED
+  REVOKED
+  RETIRED
 }
 
 // ==================== MODELS ====================
@@ -98,7 +118,8 @@ model User {
   people   People? @relation(fields: [peopleId], references: [id])
 
   // Relaciones
-  sales Sale[]
+  sales              Sale[]
+  inventoryMovements InventoryMovement[]
 
   @@map("users")
 }
@@ -245,10 +266,11 @@ model Product {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relaciones
-  images        ProductImage[]
-  presentations Presentation[] @relation("ProductPresentations")
-  productTaxes  ProductTax[]
-  productStock  ProductStock?
+  images             ProductImage[]
+  presentations      Presentation[] @relation("ProductPresentations")
+  productTaxes       ProductTax[]
+  productStock       ProductStock?
+  inventoryMovements InventoryMovement[]
 
   // Relaciones con presentaciones por defecto
   defaultPurchasePresentation Presentation? @relation("DefaultPurchasePresentation", fields: [defaultPurchasePresentationId], references: [id], onDelete: SetNull)
@@ -334,6 +356,7 @@ model Presentation {
   defaultForSaleInProducts       Product[]        @relation("DefaultSalePresentation")
   saleDetails                    SaleDetail[]
   saleProductTaxes               SaleProductTax[]
+  inventoryMovements             InventoryMovement[]
 
   @@unique([productId, presentationTypeId])
   @@index([productId])
@@ -362,6 +385,38 @@ model ProductStock {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("product_stocks")
+}
+
+model InventoryMovement {
+  id String @id @default(cuid())
+
+  productId String  @map("product_id")
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  userId String? @map("user_id")
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  presentationId String?       @map("presentation_id")
+  presentation   Presentation? @relation(fields: [presentationId], references: [id], onDelete: SetNull)
+
+  movementType InventoryMovementType   @map("movement_type")
+  source       InventoryMovementSource @map("source")
+
+  quantityInPresentation Int @map("quantity_in_presentation")
+  factorToBase           Int @map("factor_to_base")
+  deltaBaseUnits         Int @map("delta_base_units")
+
+  stockBefore Int @map("stock_before")
+  stockAfter  Int @map("stock_after")
+
+  note String? @db.VarChar(255)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([productId, createdAt])
+  @@index([userId, createdAt])
+  @@index([source, createdAt])
+  @@map("inventory_movements")
 }
 
 // ==================== PAYMENT METHODS ====================
@@ -501,6 +556,34 @@ enum SaleStatus {
   PARTIAL_PAYMENT // Crédito con pago parcial
 }
 
+enum LogoSize {
+  SMALL // Pequeño
+  MEDIUM // Mediano
+  LARGE // Grande
+}
+
+// Catálogo de tipos de documento (SRI e internos)
+model DocumentType {
+  id               Int      @id @default(autoincrement())
+  documentName     String   @map("document_name") @db.VarChar(120)
+  itemsAutoGenerate Int     @map("items_auto_generate") @default(0)
+  indefinite       Boolean  @default(false)
+  documentCategoryId Int    @map("document_category_id")
+  idGroupNumeration Int     @map("id_group_numeration")
+  codSRI           String?  @map("cod_sri") @db.VarChar(2)
+  active           Boolean  @default(true)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  terminalSettings TerminalSettings[]
+  sales            Sale[]
+
+  @@unique([documentName])
+  @@index([active])
+  @@map("document_types")
+}
+
 // Catálogo de bancos para transferencias
 model Bank {
   id   String  @id @default(cuid())
@@ -518,24 +601,126 @@ model Bank {
   @@map("banks")
 }
 
-// Control de secuenciales de factura (formato SRI: establecimiento-punto-secuencial)
-model InvoiceSequence {
-  id             String @id @default(cuid())
-  establishment  String @db.VarChar(3) // "001", "002", etc.
-  pointOfSale    String @map("point_of_sale") @db.VarChar(3) // "001", "002", etc.
-  lastSequential Int    @default(0) @map("last_sequential") // Último número usado
-  
+// Bodega/Sucursal que define código de establecimiento SRI
+model Warehouse {
+  id Int @id @default(autoincrement())
+
+  name              String @db.VarChar(120)
+  establishmentCode String @unique @map("establishment_code") @db.VarChar(3)
+  active            Boolean @default(true)
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  @@unique([establishment, pointOfSale])
-  @@map("invoice_sequences")
+  terminals Terminal[]
+
+  @@map("warehouses")
+}
+
+// Terminal/Punto de venta físico o lógico (ej: CAJA_001)
+model Terminal {
+  id Int @id @default(autoincrement())
+
+  code String @unique @db.VarChar(30)
+  name String? @db.VarChar(120)
+
+  warehouseId Int       @map("warehouse_id")
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+
+  deviceId String @unique @map("device_id")
+  device   Device @relation(fields: [deviceId], references: [id], onDelete: Restrict)
+
+  emissionPoint String  @map("emission_point") @db.VarChar(3)
+  active        Boolean @default(true)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  sales            Sale[]
+  terminalSettings TerminalSettings[]
+
+  @@unique([warehouseId, emissionPoint])
+  @@index([warehouseId])
+  @@index([warehouseId, active])
+  @@index([deviceId])
+  @@map("terminals")
+}
+
+// Dispositivo/Equipo POS que se asigna a una terminal (para trazabilidad y autenticación)
+model Device {
+  id           String    @id @default(cuid())
+  deviceToken  String    @unique @map("device_token") @db.VarChar(64) // Se almacena SHA-256 del token real
+  tokenLast4   String    @map("token_last4") @db.VarChar(4)
+  tokenVersion Int       @default(1) @map("token_version")
+  tokenIssuedAt DateTime @default(now()) @map("token_issued_at")
+  tokenRotatedAt DateTime? @map("token_rotated_at")
+  tokenRevokedAt DateTime? @map("token_revoked_at")
+  revokeReason String?   @map("revoke_reason") @db.VarChar(255)
+
+  pairingCode          String?   @unique @map("pairing_code") @db.VarChar(10)
+  pairingCodeExpiresAt DateTime? @map("pairing_code_expires_at")
+  pairingCodeAttempts  Int       @default(0) @map("pairing_code_attempts")
+
+  fingerprintSignal String? @map("fingerprint_signal") @db.VarChar(128)
+  riskScore         Int     @default(0) @map("risk_score")
+  riskSignals       Json?   @map("risk_signals")
+
+  deviceName   String?   @map("device_name") @db.VarChar(100) // Nombre asignado por el usuario (ej: "Caja 1", "Caja Negra")
+  ipAddress    String?   @map("ip_address") @db.VarChar(45) // Última IP desde donde se conectó (IPv4 o IPv6)
+
+  terminal     Terminal?
+  status       DeviceStatus @default(PENDING)
+  active       Boolean   @default(true)
+  lastSeen     DateTime  @default(now()) @map("last_seen") // Última vez que se conectó
+  
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  // Relaciones
+  sales        Sale[]
+
+  @@index([active])
+  @@index([status])
+  @@index([pairingCodeExpiresAt])
+  @@map("devices")
+}
+
+// Configuración por Terminal + Tipo de Documento + Impresora
+// Permite configurar qué impresora usar, formato de salida, etc. por combinación
+model TerminalSettings {
+  id           String       @id @default(cuid())
+  
+  terminalId   Int          @map("terminal_id")
+  terminal     Terminal     @relation(fields: [terminalId], references: [id], onDelete: Cascade)
+  
+  documentTypeId Int          @map("document_type_id")
+  documentType   DocumentType @relation(fields: [documentTypeId], references: [id], onDelete: Restrict)
+  
+  // Configuración de impresora térmica
+  namePrinter  String?      @map("name_printer") @db.VarChar(100) // Nombre/ID de la impresora (ej: "PRINT_001", "Star_TSP100")
+  characterLine Int?        @map("character_line") // Caracteres por línea (típicamente 32, 40, 80)
+  withLogo     LogoSize?    @map("with_logo") // Tamaño del logo a imprimir (SMALL, MEDIUM, LARGE, o null para no imprimir)
+  
+  // Límites y configuración
+  maxItems     Int          @default(100) @map("max_items") // Máximo de items permitidos en una transacción
+  linesPerTransaction Int?  @map("lines_per_transaction") // Líneas máximas de items a imprimir en ticket (antes de salto de papel)
+  lastSequential Int        @default(0) @map("last_sequential") // Contador de secuencia por terminal + tipo documento
+  
+  enabled      Boolean      @default(true)
+  
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  @@unique([terminalId, documentTypeId])
+  @@index([terminalId])
+  @@index([documentTypeId])
+  @@map("terminal_settings")
 }
 
 // Venta/Factura principal
 model Sale {
-  id            String     @id @default(cuid())
-  invoiceNumber String     @unique @map("invoice_number") @db.VarChar(17) // 001-001-000000001
+  id            String       @id @default(cuid())
+  invoiceNumber String       @unique @map("invoice_number") @db.VarChar(17) // 001-001-000000001
   
   // Cliente
   customerId String   @map("customer_id")
@@ -544,6 +729,18 @@ model Sale {
   // Usuario que registra la venta
   userId String @map("user_id")
   user   User   @relation(fields: [userId], references: [id])
+
+  // Terminal que emite la factura (CAJA_001, etc.)
+  terminalId Int?      @map("terminal_id")
+  terminal   Terminal? @relation(fields: [terminalId], references: [id], onDelete: SetNull)
+
+  // Tipo de documento (Factura, Nota de Crédito, etc.)
+  documentTypeId Int          @map("document_type_id")
+  documentType   DocumentType @relation(fields: [documentTypeId], references: [id], onDelete: Restrict)
+
+  // Equipo/dispositivo que originó la venta (para trazabilidad)
+  deviceId String?  @map("device_id")
+  device   Device? @relation(fields: [deviceId], references: [id], onDelete: SetNull)
 
   // Montos
   subtotal     Decimal @db.Decimal(10, 2) // Subtotal sin impuestos
@@ -566,6 +763,10 @@ model Sale {
   payments       SalePayment[]
   productTaxes   SaleProductTax[]
   credit         Credit?
+
+  @@index([terminalId])
+  @@index([deviceId])
+  @@index([documentTypeId])
 
   @@map("sales")
 }

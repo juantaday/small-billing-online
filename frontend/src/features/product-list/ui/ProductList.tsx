@@ -108,7 +108,7 @@ export function ProductList() {
 
       {/* Grid de productos */}
       <div className="px-1">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(290px,1fr))] gap-4 sm:gap-6">
           {filteredProducts.map(product => {
             const mainImage = product.images?.find((img: any) => img.isPrimary) || product.images?.[0];
             const activePresentations = (product.presentations || []).filter((p) => p.active);
