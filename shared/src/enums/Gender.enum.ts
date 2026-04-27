@@ -1,2 +1,8 @@
-// Re-exportar el enum de Prisma para mantener consistencia
-export { Gender } from '@prisma/client';
+/**
+ * Género de la persona
+ */
+export enum Gender {
+	MASCULINO = 'MASCULINO',
+	FEMENINO = 'FEMENINO',
+	OTRO = 'OTRO',
+}

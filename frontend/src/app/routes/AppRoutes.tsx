@@ -151,11 +151,31 @@ export function AppRoutes() {
           }
         />
         <Route
-          path={ROUTES.SETTINGS}
+          path={ROUTES.SETTINGS_BUSINESS}
           element={
             <PrivateRoute allowedRoles={['Admin', 'SaleManager']}>
               <MainLayout>
-                <SettingsPage />
+                <SettingsPage section="business" />
+              </MainLayout>
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path={ROUTES.SETTINGS_SYSTEM}
+          element={
+            <PrivateRoute allowedRoles={['Admin']}>
+              <MainLayout>
+                <SettingsPage section="system" />
+              </MainLayout>
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path={ROUTES.SETTINGS_PRINTERS}
+          element={
+            <PrivateRoute allowedRoles={['Admin', 'SaleManager', 'Cajero', 'User']}>
+              <MainLayout>
+                <SettingsPage section="printers" />
               </MainLayout>
             </PrivateRoute>
           }

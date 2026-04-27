@@ -4,7 +4,11 @@ import {
   CustomerDto,
   UpdateCustomerDto,
   CustomerWithRelationsDto,
+  PeopleDto,
+  PersonType,
+  IdentityType,
 } from '@small-billing/shared';
+import { People as PrismaPeople } from '@prisma/client';
 import { LoggerService } from '../common/logger/logger.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -16,14 +20,66 @@ export class CustomerService {
     private readonly logger: LoggerService,
   ) {}
 
-  async findAll(): Promise<CustomerWithRelationsDto[]> {
+  private mapPersonType(value: PrismaPeople['personType']): PersonType {
+    switch (value) {
+      case 'NATURAL':
+        return PersonType.NATURAL;
+      case 'JURIDICA':
+        return PersonType.JURIDICA;
+      default:
+        return PersonType.NATURAL;
+    }
+  }
+
+  private mapIdentityType(value: PrismaPeople['identityType']): IdentityType {
+    switch (value) {
+      case 'CEDULA':
+        return IdentityType.CEDULA;
+      case 'RUC':
+        return IdentityType.RUC;
+      case 'PASAPORTE':
+        return IdentityType.PASAPORTE;
+      default:
+        return IdentityType.CEDULA;
+    }
+  }
+
+  private mapPeopleToDto(people?: PrismaPeople | null): PeopleDto | undefined {
+    if (!people) return undefined;
+
+    return {
+      id: people.id,
+      firstName: people.firstName,
+      lastName: people.lastName || undefined,
+      rucCi: people.rucCi,
+      birthDate: people.birthDate || undefined,
+      mainEmail: people.mainEmail || undefined,
+      phone: people.phone || undefined,
+      address: people.address || undefined,
+      personType: this.mapPersonType(people.personType),
+      identityType: this.mapIdentityType(people.identityType),
+      dateRegistered: people.dateRegistered,
+    };
+  }
+
+  async findAll(params?: { page?: number; limit?: number }): Promise<CustomerWithRelationsDto[]> {
+    const page = params?.page && params.page > 0 ? params.page : 1;
+    const limit = params?.limit && params.limit > 0 ? params.limit : 10;
+    const skip = (page - 1) * limit;
+
     const customers = await this.prisma.customer.findMany({
       where: { active: true },
       include: {
         people: true,
         customerCategory: true,
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: [
+        { people: { lastName: 'asc' } },
+        { people: { firstName: 'asc' } },
+        { createdAt: 'desc' },
+      ],
+      skip,
+      take: limit,
     });
 
     return customers.map((customer) => ({
@@ -36,7 +92,7 @@ export class CustomerService {
       active: customer.active,
       createdAt: customer.createdAt,
       updatedAt: customer.updatedAt,
-      people: customer.people,
+      people: this.mapPeopleToDto(customer.people),
       customerCategory: customer.customerCategory ? {
         ...customer.customerCategory,
         discountPercentage: customer.customerCategory.discountPercentage.toNumber(),
@@ -71,7 +127,7 @@ export class CustomerService {
       active: customer.active,
       createdAt: customer.createdAt,
       updatedAt: customer.updatedAt,
-      people: customer.people,
+      people: this.mapPeopleToDto(customer.people),
       customerCategory: customer.customerCategory ? {
         ...customer.customerCategory,
         discountPercentage: customer.customerCategory.discountPercentage.toNumber(),
@@ -133,7 +189,7 @@ export class CustomerService {
       active: customer.active,
       createdAt: customer.createdAt,
       updatedAt: customer.updatedAt,
-      people: customer.people,
+      people: this.mapPeopleToDto(customer.people),
       customerCategory: customer.customerCategory
         ? {
             ...customer.customerCategory,
@@ -178,7 +234,7 @@ export class CustomerService {
       active: customer.active,
       createdAt: customer.createdAt,
       updatedAt: customer.updatedAt,
-      people: customer.people,
+      people: this.mapPeopleToDto(customer.people),
       customerCategory: customer.customerCategory
         ? {
             ...customer.customerCategory,
@@ -412,7 +468,7 @@ export class CustomerService {
       active: customer.active,
       createdAt: customer.createdAt,
       updatedAt: customer.updatedAt,
-      people: customer.people,
+      people: this.mapPeopleToDto(customer.people),
       customerCategory: customer.customerCategory ? {
         ...customer.customerCategory,
         discountPercentage: customer.customerCategory.discountPercentage.toNumber(),

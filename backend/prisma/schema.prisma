@@ -72,7 +72,59 @@ enum DeviceStatus {
   RETIRED
 }
 
+enum BusinessTypeGroup {
+  LEGAL_NATURE
+  TAX_REGIME
+  SPECIAL_DESIGNATION
+}
+
 // ==================== MODELS ====================
+
+model BusinessType {
+  id          Int               @id @default(autoincrement())
+  code        String?           @db.VarChar(30)
+  name        String            @db.VarChar(120)
+  group       BusinessTypeGroup
+  description String?           @db.Text
+  active      Boolean           @default(true)
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+
+  legalNatureBusinesses       BusinessDetails[] @relation("BusinessLegalNature")
+  taxRegimeBusinesses         BusinessDetails[] @relation("BusinessTaxRegime")
+  specialDesignationBusinesses BusinessDetails[] @relation("BusinessSpecialDesignation")
+
+  @@unique([group, name])
+  @@index([group])
+  @@map("business_types")
+}
+
+model BusinessDetails {
+  id                   String       @id @default(cuid())
+  ruc                  String       @unique @db.VarChar(13)
+  legalName            String       @map("legal_name") @db.VarChar(150)
+  commercialName       String?      @map("commercial_name") @db.VarChar(150)
+  tradeName            String?      @map("trade_name") @db.VarChar(150)
+  phone                String?      @db.VarChar(30)
+  address              String?      @db.VarChar(255)
+
+  legalNatureId        Int          @map("legal_nature_id")
+  legalNature          BusinessType @relation("BusinessLegalNature", fields: [legalNatureId], references: [id])
+
+  taxRegimeId          Int          @map("tax_regime_id")
+  taxRegime            BusinessType @relation("BusinessTaxRegime", fields: [taxRegimeId], references: [id])
+
+  specialDesignationId Int?         @map("special_designation_id")
+  specialDesignation   BusinessType? @relation("BusinessSpecialDesignation", fields: [specialDesignationId], references: [id])
+
+  createdAt            DateTime     @default(now()) @map("created_at")
+  updatedAt            DateTime     @updatedAt @map("updated_at")
+
+  @@index([legalNatureId])
+  @@index([taxRegimeId])
+  @@index([specialDesignationId])
+  @@map("business_details")
+}
 
 model People {
   id             String       @id @default(cuid())
@@ -720,7 +772,7 @@ model TerminalSettings {
 // Venta/Factura principal
 model Sale {
   id            String       @id @default(cuid())
-  invoiceNumber String       @unique @map("invoice_number") @db.VarChar(17) // 001-001-000000001
+  invoiceNumber String       @map("invoice_number") @db.VarChar(17) // 001-001-000000001
   
   // Cliente
   customerId String   @map("customer_id")
@@ -731,16 +783,16 @@ model Sale {
   user   User   @relation(fields: [userId], references: [id])
 
   // Terminal que emite la factura (CAJA_001, etc.)
-  terminalId Int?      @map("terminal_id")
-  terminal   Terminal? @relation(fields: [terminalId], references: [id], onDelete: SetNull)
+  terminalId Int      @map("terminal_id")
+  terminal   Terminal @relation(fields: [terminalId], references: [id], onDelete: Restrict)
 
   // Tipo de documento (Factura, Nota de Crédito, etc.)
   documentTypeId Int          @map("document_type_id")
   documentType   DocumentType @relation(fields: [documentTypeId], references: [id], onDelete: Restrict)
 
   // Equipo/dispositivo que originó la venta (para trazabilidad)
-  deviceId String?  @map("device_id")
-  device   Device? @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  deviceId String  @map("device_id")
+  device   Device @relation(fields: [deviceId], references: [id], onDelete: Restrict)
 
   // Montos
   subtotal     Decimal @db.Decimal(10, 2) // Subtotal sin impuestos
@@ -767,6 +819,7 @@ model Sale {
   @@index([terminalId])
   @@index([deviceId])
   @@index([documentTypeId])
+  @@unique([invoiceNumber, documentTypeId])
 
   @@map("sales")
 }

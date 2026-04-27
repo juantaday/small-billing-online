@@ -3,14 +3,19 @@
  * Lista de pedido desde carrito con flujo de facturación
  */
 
-import { useEffect, useMemo, useState } from 'react';
-import { Minus, Plus, Trash2, ShoppingCart } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Minus, Plus, Trash2, ShoppingCart, Loader2 } from 'lucide-react';
 import {
   CardType,
   CustomerCategoryDto,
   CustomerWithRelationsDto,
   DocumentTypeDto,
   IdentityType,
+  CARD_TYPE_OPTIONS,
+  PAYMENT_METHOD_TYPE_OPTIONS,
+  getCardTypeLabel,
+  getIdentityTypeOptions,
+  getPaymentMethodTypeLabel,
   PaymentMethodType,
   PersonType,
 } from '@small-billing/shared';
@@ -24,7 +29,8 @@ import { saleApi } from '@/entities/sale';
 import { Button, Card, Input, Modal, SpinnerLoading, ToastContainer, useToast } from '@/shared/ui';
 import { formatCurrency, logger, resolveImageUrl } from '@/shared/lib';
 import { useToastContext } from '@/app/providers/toast/ToastProvider';
-import { ensureDeviceToken, getOrCreateDeviceToken, registerDevice } from '@/shared/device.util';
+import { getDevice, getOrCreateDeviceToken, ensureDeviceToken } from '@/shared/device.util';
+import { useDeviceInitialization } from '@/shared/hooks/useDeviceInitialization';
 
 interface PaymentDraft {
   id: string;
@@ -41,15 +47,6 @@ interface PaymentDraft {
 
 const CONSUMER_FINAL_RUC = '9999999999999';
 const POS_TERMINAL_CODE_STORAGE_KEY = 'small-billing.pos.terminal-id';
-
-const CARD_OPTIONS: CardType[] = [
-  CardType.VISA,
-  CardType.MASTERCARD,
-  CardType.AMERICAN_EXPRESS,
-  CardType.DINERS_CLUB,
-  CardType.DISCOVER,
-  CardType.OTHER,
-];
 
 function makePaymentDraft(defaultAmount = ''): PaymentDraft {
   return {
@@ -74,7 +71,26 @@ function resolveTerminalCode(): string | undefined {
   if (typeof window === 'undefined') return undefined;
 
   const stored = localStorage.getItem(POS_TERMINAL_CODE_STORAGE_KEY)?.trim();
-  return stored ? stored : undefined;
+  if (stored) return stored;
+
+  const legacyCandidates = ['terminalInfo', 'mototaller_terminal_data'];
+  for (const key of legacyCandidates) {
+    const raw = localStorage.getItem(key);
+    if (!raw) continue;
+
+    try {
+      const parsed = JSON.parse(raw) as { code?: unknown };
+      if (typeof parsed.code === 'string' && parsed.code.trim()) {
+        const legacyCode = parsed.code.trim();
+        localStorage.setItem(POS_TERMINAL_CODE_STORAGE_KEY, legacyCode);
+        return legacyCode;
+      }
+    } catch {
+      logger.warn('Invalid legacy terminal storage payload', { key });
+    }
+  }
+
+  return undefined;
 }
 
 function resolveDefaultDocumentTypeId(documentTypes: DocumentTypeDto[]): number {
@@ -87,6 +103,7 @@ function resolveDefaultDocumentTypeId(documentTypes: DocumentTypeDto[]): number 
 }
 
 export function OrdersPage() {
+  const inputSearchRef = useRef<HTMLInputElement | null>(null);
   const { role, user } = useAuth();
   const { items, updateQuantity, removeItem, clearCart, total, itemCount, subtotalSinIva, taxSummary } = useCart();
   const { toasts, removeToast } = useToast();
@@ -94,11 +111,13 @@ export function OrdersPage() {
 
 
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [isOpeningCheckout, setIsOpeningCheckout] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerWithRelationsDto | null>(null);
   const [useFinalConsumer, setUseFinalConsumer] = useState(false);
   const [isResolvingCustomer, setIsResolvingCustomer] = useState(false);
+  const [shouldFocusSearchInput, setShouldFocusSearchInput] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<CustomerWithRelationsDto[]>([]);
@@ -143,32 +162,9 @@ export function OrdersPage() {
 
   const pendingAmount = round2(total - paymentTotal);
   const isModalBusy = isSearching || isSubmitting;
-  // Registrar el dispositivo POS al cargar la página
-  useEffect(() => {
-    const initializeDevice = async () => {
-      try {
-        const deviceToken = await ensureDeviceToken(
-          import.meta.env.VITE_API_URL || 'http://localhost:3000',
-          {
-            deviceName: 'POS_' + (user?.alias || 'Terminal'),
-          },
-        );
-        // Registrar el dispositivo en el backend
-        await registerDevice(
-          import.meta.env.VITE_API_URL || 'http://localhost:3000',
-          'POS_' + (user?.alias || 'Terminal'),
-        );
-        console.log('Device registered with token:', deviceToken.substring(0, 16) + '...');
-      } catch (err) {
-        logger.warn('Device registration failed, will retry on next sale', err);
-        // No tirar error - el dispositivo se registrará cuando haga la primera venta
-      }
-    };
 
-    if (user?.id) {
-      initializeDevice();
-    }
-  }, [user?.id, user?.alias]);
+  // Inicializar dispositivo UNA sola vez al cargar la app
+  const { deviceToken, isInitialized } = useDeviceInitialization();
 
   const resetCheckout = () => {
     setSelectedCustomer(null);
@@ -181,42 +177,130 @@ export function OrdersPage() {
     setSelectedDocumentTypeId(resolveDefaultDocumentTypeId(documentTypes));
   };
 
-  const openCheckout = async () => {
-    setIsCheckoutOpen(true);
-    resetCheckout();
+  const identityTypeOptions = getIdentityTypeOptions();
 
-    try {
-      const [banksData, categoriesData, documentTypesData] = await Promise.all([
-        bankApi.getAll(),
-        customerCategoryApi.getAll(),
-        documentTypeApi.getAll(),
-      ]);
+ const ensurePosReadyForCheckout = async (): Promise<boolean> => {
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
-      setBanks(banksData);
-      setCategories(categoriesData);
-      setDocumentTypes(documentTypesData);
-      setSelectedDocumentTypeId(resolveDefaultDocumentTypeId(documentTypesData));
-      setNewCustomerCategoryId(categoriesData[0]?.id || '');
-    } catch (checkoutError) {
-      logger.error('Error loading checkout catalogs', checkoutError);
-      error('Error de carga', 'No se pudieron cargar bancos, categorías o tipos de documento.');
+  try {
+    // ── PASO 1 ─────────────────────────────────────────────────────────────
+    // ¿Hay DEVICE_TOKEN_KEY en localStorage? → consultar el dispositivo.
+    // Si ya tiene terminalId, listo para facturar. Fin.
+    let device = await getDevice(apiUrl);
+
+    if (device?.terminalId) {
+      return true; // ✓ Equipo identificado y con terminal asignada
     }
 
-    if (role === 'Customer' && user?.id) {
-      setIsResolvingCustomer(true);
+    // Tiene token y el backend lo reconoce, pero aún no tiene terminal asignada.
+    // Alguien debe configurarlo manualmente → parar aquí.
+    if (device && !device.terminalId) {
+      error(
+        'Equipo sin terminal',
+        'Este equipo no está vinculado a ninguna terminal. Vincúlalo en Seguridad de dispositivos para poder facturar.',
+      );
+      return false;
+    }
+
+    // ── PASO 2 ─────────────────────────────────────────────────────────────
+    // getDevice devolvió null. ¿Tenemos token guardado?
+    // Si sí, el backend no lo reconoció → alguien debe configurarlo. Parar.
+    const storedToken = getOrCreateDeviceToken();
+    if (storedToken) {
+      error(
+        'Dispositivo no reconocido',
+        'Este equipo tiene un token guardado pero el servidor no lo reconoció. Contacta al administrador.',
+      );
+      return false;
+    }
+
+    // ── PASO 3 ─────────────────────────────────────────────────────────────
+    // No hay token. Intentar enrolamiento automático vía hardware fingerprint.
+    // Si el backend reconoce el fingerprint, devuelve un DEVICE_TOKEN_KEY.
+    try {
+      await ensureDeviceToken(apiUrl);
+    } catch {
+      error(
+        'Equipo no registrado',
+        'No se pudo identificar este equipo. Contacta al administrador para registrarlo.',
+      );
+      return false;
+    }
+
+    // Con el token nuevo, volver a consultar si ya tiene terminal asignada.
+    device = await getDevice(apiUrl);
+
+    if (!device) {
+      error(
+        'Dispositivo no encontrado',
+        'Se obtuvo un token pero el equipo no fue encontrado en el servidor. Intenta nuevamente.',
+      );
+      return false;
+    }
+
+    if (!device.terminalId) {
+      error(
+        'Equipo sin terminal',
+        'El equipo fue identificado pero no tiene una terminal asignada. Vincúlala en Seguridad de dispositivos.',
+      );
+      return false;
+    }
+
+    return true; // ✓
+
+  } catch (posValidationError) {
+    logger.error('Error validating POS readiness before checkout', posValidationError);
+    error('Error de configuración POS', 'No se pudo validar el dispositivo antes de facturar.');
+    return false;
+  }
+};
+
+  const openCheckout = async () => {
+    if (isOpeningCheckout) return;
+
+    setIsOpeningCheckout(true);
+    try {
+      const isPosReady = await ensurePosReadyForCheckout();
+      if (!isPosReady) return;
+
+      setIsCheckoutOpen(true);
+      resetCheckout();
+
       try {
-        const ownCustomer = await customerApi.getByUserId(user.id);
-        if (ownCustomer) {
-          setSelectedCustomer(ownCustomer);
-        } else {
-          error('Cliente no vinculado', 'Tu usuario no tiene cliente vinculado, selecciona uno manualmente.');
-        }
-      } catch (resolveError) {
-        logger.error('Error resolving customer by user', resolveError, { userId: user.id });
-        error('Error', 'No se pudo resolver el cliente del usuario autenticado.');
-      } finally {
-        setIsResolvingCustomer(false);
+        const [banksData, categoriesData, documentTypesData] = await Promise.all([
+          bankApi.getAll(),
+          customerCategoryApi.getAll(),
+          documentTypeApi.getAll(),
+        ]);
+
+        setBanks(banksData);
+        setCategories(categoriesData);
+        setDocumentTypes(documentTypesData);
+        setSelectedDocumentTypeId(resolveDefaultDocumentTypeId(documentTypesData));
+        setNewCustomerCategoryId(categoriesData[0]?.id || '');
+      } catch (checkoutError) {
+        logger.error('Error loading checkout catalogs', checkoutError);
+        error('Error de carga', 'No se pudieron cargar bancos, categorías o tipos de documento.');
       }
+
+      if (role === 'Customer' && user?.id) {
+        setIsResolvingCustomer(true);
+        try {
+          const ownCustomer = await customerApi.getByUserId(user.id);
+          if (ownCustomer) {
+            setSelectedCustomer(ownCustomer);
+          } else {
+            error('Cliente no vinculado', 'Tu usuario no tiene cliente vinculado, selecciona uno manualmente.');
+          }
+        } catch (resolveError) {
+          logger.error('Error resolving customer by user', resolveError, { userId: user.id });
+          error('Error', 'No se pudo resolver el cliente del usuario autenticado.');
+        } finally {
+          setIsResolvingCustomer(false);
+        }
+      }
+    } finally {
+      setIsOpeningCheckout(false);
     }
   };
 
@@ -285,6 +369,18 @@ export function OrdersPage() {
       window.clearTimeout(timeoutId);
     };
   }, [searchTerm, isCheckoutOpen, selectedCustomer, useFinalConsumer, error]);
+
+  useEffect(() => {
+    if (!isCheckoutOpen || !shouldFocusSearchInput) return;
+    if (useFinalConsumer || selectedCustomer) return;
+
+    const timeoutId = window.setTimeout(() => {
+      inputSearchRef.current?.focus();
+      setShouldFocusSearchInput(false);
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [isCheckoutOpen, shouldFocusSearchInput, useFinalConsumer, selectedCustomer]);
 
   const clearSelectedCustomer = () => {
     setSelectedCustomer(null);
@@ -435,20 +531,30 @@ export function OrdersPage() {
     console.log('Todos los datos validados, procediendo a crear la venta con saleApi.create');
     setIsSubmitting(true);
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-      const deviceToken =
-        getOrCreateDeviceToken() ||
-        (await ensureDeviceToken(apiUrl, {
-          deviceName: 'POS_' + (user.alias || 'Terminal'),
-        }));
+      // Validar que el dispositivo esté inicializado
+      if (!deviceToken || !isInitialized) {
+        error(
+          'Dispositivo no listo',
+          'El dispositivo POS aún no está completamente inicializado. Intenta de nuevo.',
+        );
+        setIsSubmitting(false);
+        return;
+      }
 
-      console.log('Creando venta con los siguientes datos:')
+      const resolvedToken = getOrCreateDeviceToken() || deviceToken;
+      if (!resolvedToken) {
+        error('Token inválido', 'No se pudo obtener el token del dispositivo.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      console.log('Creando venta con los siguientes datos:');
       const created = await saleApi.create({
         customerId: useFinalConsumer ? undefined : selectedCustomer?.id,
         customerRucCi,
         userId: user.id,
         terminalCode: resolveTerminalCode(),
-        deviceToken, // Agregar token del dispositivo
+        deviceToken: resolvedToken,
         documentTypeId: selectedDocumentTypeId,
         details: items.map((item) => ({
           presentationId: item.presentationId,
@@ -572,8 +678,15 @@ export function OrdersPage() {
                 </div>
               </div>
 
-              <Button fullWidth size="lg" onClick={openCheckout}>
-                Terminar pedido
+              <Button fullWidth size="lg" onClick={openCheckout} disabled={isOpeningCheckout}>
+                {isOpeningCheckout ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Preparando checkout...
+                  </span>
+                ) : (
+                  'Terminar pedido'
+                )}
               </Button>
             </Card>
           </>
@@ -629,7 +742,11 @@ export function OrdersPage() {
                 <p className="font-medium text-green-800 dark:text-green-200">Consumidor Final</p>
                 <p className="text-sm text-green-700 dark:text-green-300">CI/RUC: {CONSUMER_FINAL_RUC}</p>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={() => setUseFinalConsumer(false)}>
+                  <Button variant="outline" size="sm" onClick={() => {
+                    setUseFinalConsumer(false);
+                    setSearchTerm('');
+                    setShouldFocusSearchInput(true);
+                  }}>
                     Buscar otro cliente
                   </Button>
                 </div>
@@ -643,7 +760,11 @@ export function OrdersPage() {
                   CI/RUC: {selectedCustomer.people?.rucCi}
                 </p>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={clearSelectedCustomer}>
+                  <Button variant="outline" size="sm" onClick={() => {
+                    clearSelectedCustomer();
+                    setSearchTerm('');
+                    setShouldFocusSearchInput(true);
+                  }}>
                     Cambiar cliente
                   </Button>
                   <Button variant="outline" size="sm" onClick={selectFinalConsumer}>
@@ -654,7 +775,8 @@ export function OrdersPage() {
             ) : (
               <div className="space-y-3">
                 <div className="flex gap-2">
-                  <Input
+                  <Input 
+                    ref={inputSearchRef}
                     placeholder="Buscar por RUC, cédula, nombres o apellidos"
                     value={searchTerm}
                     onChange={(event) => setSearchTerm(event.target.value)}
@@ -756,9 +878,11 @@ export function OrdersPage() {
                         }
                         className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white"
                       >
-                        <option value={IdentityType.CEDULA}>Cédula</option>
-                        <option value={IdentityType.RUC}>RUC</option>
-                        <option value={IdentityType.PASAPORTE}>Pasaporte</option>
+                        {identityTypeOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
                       </select>
                     </div>
 
@@ -829,10 +953,11 @@ export function OrdersPage() {
                           }
                           className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white"
                         >
-                          <option value={PaymentMethodType.CASH}>Efectivo</option>
-                          <option value={PaymentMethodType.TRANSFER}>Transferencia</option>
-                          <option value={PaymentMethodType.CARD}>Tarjeta débito/crédito</option>
-                          <option value={PaymentMethodType.CREDIT}>Crédito</option>
+                            {PAYMENT_METHOD_TYPE_OPTIONS.map((option) => (
+                              <option key={option} value={option}>
+                                {getPaymentMethodTypeLabel(option)}
+                              </option>
+                            ))}
                         </select>
                       </div>
 
@@ -921,9 +1046,9 @@ export function OrdersPage() {
                             className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white"
                           >
                             <option value="">Seleccione tipo</option>
-                            {CARD_OPTIONS.map((option) => (
+                            {CARD_TYPE_OPTIONS.map((option) => (
                               <option key={option} value={option}>
-                                {option}
+                                {getCardTypeLabel(option)}
                               </option>
                             ))}
                           </select>
@@ -987,6 +1112,18 @@ export function OrdersPage() {
       </Modal>
 
       {/* Modal loading, running, searching */}
+      {!isCheckoutOpen && isOpeningCheckout && (
+        <div className="fixed inset-0 z-[70] bg-black/20 backdrop-blur-[1px] flex items-center justify-center">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl px-8 py-6 border border-gray-200 dark:border-gray-700">
+            <SpinnerLoading
+              size="md"
+              message="Preparando checkout..."
+              className="min-h-0"
+            />
+          </div>
+        </div>
+      )}
+
       {isCheckoutOpen && isModalBusy && (
         <div className="fixed inset-0 z-[70] bg-black/25 backdrop-blur-[1px] flex items-center justify-center">
           <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl px-8 py-6 border border-gray-200 dark:border-gray-700">

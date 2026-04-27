@@ -18,6 +18,9 @@ import {
   ChevronDown,
   Settings,
   ShieldCheck,
+  Building,
+  Printer,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { ROUTES } from '@/shared/config';
 import { cn } from '@/shared/lib';
@@ -71,7 +74,9 @@ const navigationGroups: NavigationGroup[] = [
     title: 'Sistema',
     items: [
       { name: 'Dashboard', href: ROUTES.DASHBOARD, icon: LayoutDashboard },
-      { name: 'Configuración', href: ROUTES.SETTINGS, icon: Settings },
+      { name: 'Configuración Negocio', href: ROUTES.SETTINGS_BUSINESS, icon: Building },
+      { name: 'Config. Secuenciales', href: ROUTES.SETTINGS_SYSTEM, icon: FileSpreadsheet },
+      { name: 'Facturación / Impresoras', href: ROUTES.SETTINGS_PRINTERS, icon: Printer },
       { name: 'Seguridad Equipos', href: ROUTES.SECURITY_DEVICES, icon: ShieldCheck },
     ],
   },

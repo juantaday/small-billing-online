@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import {
   CreateRewardDto,
   RewardDto,
+  RewardType,
   UpdateRewardDto,
   RewardWithRelationsDto,
 } from '@small-billing/shared';
@@ -15,6 +16,10 @@ export class RewardService {
     private readonly prisma: PrismaService,
     private readonly logger: LoggerService,
   ) {}
+
+  private toSharedRewardType(value: string): RewardType {
+    return value as RewardType;
+  }
 
   async findAll(): Promise<RewardWithRelationsDto[]> {
     const rewards = await this.prisma.reward.findMany({
@@ -35,7 +40,7 @@ export class RewardService {
       name: reward.name,
       description: reward.description,
       pointsCost: reward.pointsCost,
-      rewardType: reward.rewardType,
+      rewardType: this.toSharedRewardType(reward.rewardType),
       discountValue: reward.discountValue?.toNumber() ?? undefined,
       presentationId: reward.presentationId,
       stock: reward.stock,
@@ -85,7 +90,7 @@ export class RewardService {
       name: reward.name,
       description: reward.description,
       pointsCost: reward.pointsCost,
-      rewardType: reward.rewardType,
+      rewardType: this.toSharedRewardType(reward.rewardType),
       discountValue: reward.discountValue?.toNumber() ?? undefined,
       presentationId: reward.presentationId,
       stock: reward.stock,
@@ -120,7 +125,7 @@ export class RewardService {
       name: reward.name,
       description: reward.description,
       pointsCost: reward.pointsCost,
-      rewardType: reward.rewardType,
+      rewardType: this.toSharedRewardType(reward.rewardType),
       discountValue: reward.discountValue?.toNumber() ?? undefined,
       presentationId: reward.presentationId,
       stock: reward.stock,
@@ -145,7 +150,7 @@ export class RewardService {
       name: reward.name,
       description: reward.description,
       pointsCost: reward.pointsCost,
-      rewardType: reward.rewardType,
+      rewardType: this.toSharedRewardType(reward.rewardType),
       discountValue: reward.discountValue?.toNumber() ?? undefined,
       presentationId: reward.presentationId,
       stock: reward.stock,
@@ -170,7 +175,7 @@ export class RewardService {
       name: reward.name,
       description: reward.description,
       pointsCost: reward.pointsCost,
-      rewardType: reward.rewardType,
+      rewardType: this.toSharedRewardType(reward.rewardType),
       discountValue: reward.discountValue?.toNumber() ?? undefined,
       presentationId: reward.presentationId,
       stock: reward.stock,
@@ -195,7 +200,7 @@ export class RewardService {
       name: reward.name,
       description: reward.description,
       pointsCost: reward.pointsCost,
-      rewardType: reward.rewardType,
+      rewardType: this.toSharedRewardType(reward.rewardType),
       discountValue: reward.discountValue?.toNumber() ?? undefined,
       presentationId: reward.presentationId,
       stock: reward.stock,
@@ -232,7 +237,7 @@ export class RewardService {
       name: updated.name,
       description: updated.description,
       pointsCost: updated.pointsCost,
-      rewardType: updated.rewardType,
+      rewardType: this.toSharedRewardType(updated.rewardType),
       discountValue: updated.discountValue?.toNumber() ?? undefined,
       presentationId: updated.presentationId,
       stock: updated.stock,

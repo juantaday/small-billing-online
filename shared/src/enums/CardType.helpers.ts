@@ -9,6 +9,22 @@ export const CARD_TYPE_LABELS: Record<CardType, string> = {
   [CardType.OTHER]: 'Otra',
 };
 
+export const CARD_TYPE_OPTIONS: CardType[] = [
+  CardType.VISA,
+  CardType.MASTERCARD,
+  CardType.AMERICAN_EXPRESS,
+  CardType.DINERS_CLUB,
+  CardType.DISCOVER,
+  CardType.OTHER,
+];
+
 export function getCardTypeLabel(type: CardType): string {
   return CARD_TYPE_LABELS[type] || type;
+}
+
+export function getCardTypeOptions() {
+  return CARD_TYPE_OPTIONS.map((value) => ({
+    value,
+    label: getCardTypeLabel(value),
+  }));
 }

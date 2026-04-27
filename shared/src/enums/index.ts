@@ -10,6 +10,7 @@ export * from './RewardType.enum';
 export * from './PaymentMethodType.enum';
 export * from './CardType.enum';
 export * from './SaleStatus.enum';
+export * from './BusinessTypeGroup.enum';
 
 export * from './PersonType.helpers';
 export * from './IdentityType.helpers';

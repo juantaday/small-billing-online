@@ -3,11 +3,12 @@
  * Gestión completa de productos con wizard
  */
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Plus, Search, Edit, Trash2, Package, DollarSign, AlertTriangle, Image } from 'lucide-react';
 import { Button, Card, ConfirmDialog, SpinnerLoading, Modal } from '@/shared/ui';
 import { useToastContext } from '@/app/providers/toast';
 import { useProducts } from '@/entities/product/api/useProducts';
+import { productApi } from '@/entities/product/api/product-api';
 import { useCategories } from '@/entities/category/api/useCategories';
 import { useAuth } from '@/features/auth';
 import clsx from 'clsx';
@@ -17,9 +18,16 @@ import { ProductImageManager } from '@/features/product-management/ui/ProductIma
 
 
 export function ProductManagementPage() {
+  const pageSize = 10;
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[] | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const searchAbortRef = useRef<AbortController | null>(null);
+  const searchRequestIdRef = useRef(0);
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
+  const [page, setPage] = useState(1);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<{ id: string; name: string } | null>(null);
@@ -47,7 +55,11 @@ export function ProductManagementPage() {
     finalizeWizard,
     discardDraft,
     quickAddInventory,
-  } = useProducts();
+  } = useProducts({
+    page,
+    limit: pageSize,
+    categoryId: selectedCategoryFilter === 'all' ? undefined : selectedCategoryFilter,
+  });
   const { categories } = useCategories();
 
   const resolveFactorToBase = (presentationId: string, presentations: any[]): number => {
@@ -84,15 +96,61 @@ export function ProductManagementPage() {
     return resolve(presentationId);
   };
 
-  // Filtrar productos
-  const filteredProducts = products.filter((product) => {
-    const matchesSearch = product.name
-      .toLowerCase()
-      .includes(searchQuery.toLowerCase());
-    const matchesCategory =
-      selectedCategoryFilter === 'all' || product.categoryId === selectedCategoryFilter;
-    return matchesSearch && matchesCategory;
-  });
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      setDebouncedQuery(searchQuery.trim());
+    }, 600);
+
+    return () => clearTimeout(handle);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (debouncedQuery.length < 3) {
+      searchAbortRef.current?.abort();
+      setSearchResults(null);
+      setIsSearching(false);
+      return;
+    }
+
+    setIsSearching(true);
+    searchAbortRef.current?.abort();
+    const controller = new AbortController();
+    searchAbortRef.current = controller;
+    const requestId = ++searchRequestIdRef.current;
+
+    const runSearch = async () => {
+      try {
+        const data = await productApi.search(
+          debouncedQuery,
+          {
+            limit: pageSize,
+          },
+          { signal: controller.signal }
+        );
+
+        if (requestId === searchRequestIdRef.current) {
+          setSearchResults(data);
+        }
+      } catch (error: any) {
+        if (error?.name !== 'AbortError') {
+          console.error('Error searching products:', error);
+          if (requestId === searchRequestIdRef.current) {
+            setSearchResults([]);
+          }
+        }
+      } finally {
+        if (requestId === searchRequestIdRef.current) {
+          setIsSearching(false);
+        }
+      }
+    };
+
+    runSearch();
+  }, [debouncedQuery]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [selectedCategoryFilter]);
 
   // Abrir wizard para crear
   const handleCreate = () => {
@@ -289,6 +347,9 @@ export function ProductManagementPage() {
     ? Math.max(0, Math.floor(previewQuantity)) * previewFactorToBase
     : 0;
 
+  const isSearchActive = debouncedQuery.length >= 3;
+  const visibleProducts = isSearchActive ? searchResults || [] : products;
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -363,8 +424,9 @@ export function ProductManagementPage() {
       {/* Tabla de productos */}
       {!loading && (
         <Card>
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="relative">
+            <div className="overflow-x-auto">
+              <table className="w-full">
               <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -391,7 +453,7 @@ export function ProductManagementPage() {
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
-                {filteredProducts.map((product) => {
+                {visibleProducts.map((product) => {
                   const mainPrice = getMainPrice(product);
                   const totalStock = getTotalStock(product);
                   const hasLowStock = product.presentations?.some(
@@ -501,20 +563,50 @@ export function ProductManagementPage() {
               </tbody>
             </table>
 
-            {/* Sin resultados */}
-            {filteredProducts.length === 0 && (
-              <div className="text-center py-12">
-                <Package className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-                <p className="text-gray-500 dark:text-gray-400 text-lg">
-                  No se encontraron productos
-                </p>
-                <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">
-                  Intenta ajustar los filtros o crea un nuevo producto
-                </p>
+              {/* Sin resultados */}
+              {visibleProducts.length === 0 && (
+                <div className="text-center py-12">
+                  <Package className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+                  <p className="text-gray-500 dark:text-gray-400 text-lg">
+                    No se encontraron productos
+                  </p>
+                  <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">
+                    Intenta ajustar los filtros o crea un nuevo producto
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {isSearching && (
+              <div className="absolute inset-0 bg-white/70 dark:bg-gray-900/60 backdrop-blur-[1px] flex items-center justify-center">
+                <SpinnerLoading size="md" message="Buscando..." />
               </div>
             )}
           </div>
         </Card>
+      )}
+
+      {!loading && !isSearchActive && (
+        <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
+          <span>Mostrando {products.length} productos</span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+              disabled={page <= 1}
+            >
+              Anterior
+            </Button>
+            <span>Pagina {page}</span>
+            <Button
+              variant="ghost"
+              onClick={() => setPage((prev) => prev + 1)}
+              disabled={products.length < pageSize}
+            >
+              Siguiente
+            </Button>
+          </div>
+        </div>
       )}
 
       {/* Estadísticas rápidas */}

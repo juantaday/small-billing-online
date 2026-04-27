@@ -22,6 +22,8 @@ import { DocumentTypeModule } from './document-type/document-type.module';
 import { WarehouseModule } from './warehouse/warehouse.module';
 import { TerminalModule } from './terminal/terminal.module';
 import { InvoiceSequenceModule } from './invoice-sequence/invoice-sequence.module';
+import { BusinessTypeModule } from './business-type/business-type.module';
+import { BusinessDetailsModule } from './business-details/business-details.module';
 
 @Module({
   imports: [
@@ -45,6 +47,8 @@ import { InvoiceSequenceModule } from './invoice-sequence/invoice-sequence.modul
     WarehouseModule,
     TerminalModule,
     InvoiceSequenceModule,
+    BusinessTypeModule,
+    BusinessDetailsModule,
   ],
   providers: [
     {

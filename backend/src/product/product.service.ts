@@ -320,11 +320,26 @@ export class ProductService {
 
   // ─── Queries públicas ────────────────────────────────────────────────────────
 
-  async findAll(): Promise<ProductWithRelationsDto[]> {
+  async findAll(params?: {
+    page?: number;
+    limit?: number;
+    categoryId?: string;
+  }): Promise<ProductWithRelationsDto[]> {
+    const page = params?.page && params.page > 0 ? params.page : undefined;
+    const limit = params?.limit && params.limit > 0 ? Math.min(params.limit, 100) : undefined;
+    const skip = page && limit ? (page - 1) * limit : undefined;
+
+    const where = {
+      active: true,
+      ...(params?.categoryId ? { categoryId: params.categoryId } : {}),
+    };
+
     const products = await this.prisma.product.findMany({
-      where: { active: true },
+      where,
       include: this.fullInclude,
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ name: 'asc' }, { createdAt: 'desc' }],
+      skip,
+      take: limit,
     });
 
     return products.map((p) => this.mapProductWithRelations(p));
@@ -334,6 +349,46 @@ export class ProductService {
     const products = await this.prisma.product.findMany({
       where: { categoryId, active: true },
       include: this.fullInclude,
+      orderBy: [{ name: 'asc' }, { createdAt: 'desc' }],
+    });
+
+    return products.map((p) => this.mapProductWithRelations(p));
+  }
+
+  async search(
+    term: string,
+    params?: { page?: number; limit?: number; categoryId?: string },
+  ): Promise<ProductWithRelationsDto[]> {
+    const normalized = term.trim();
+    if (!normalized) return [];
+
+    const tokens = normalized
+      .split(/\s+/)
+      .map((token) => token.trim())
+      .filter(Boolean)
+      .slice(0, 3);
+
+    if (tokens.length === 0) return [];
+
+    const page = params?.page && params.page > 0 ? params.page : 1;
+    const limit = params?.limit && params.limit > 0 ? Math.min(params.limit, 100) : 50;
+    const skip = (page - 1) * limit;
+
+    const products = await this.prisma.product.findMany({
+      where: {
+        active: true,
+        AND: tokens.map((token) => ({
+          OR: [
+            { name: { contains: token, mode: 'insensitive' } },
+            { slug: { contains: token, mode: 'insensitive' } },
+            { shortDescription: { contains: token, mode: 'insensitive' } },
+          ],
+        })),
+      },
+      include: this.fullInclude,
+      orderBy: [{ name: 'asc' }, { createdAt: 'desc' }],
+      skip,
+      take: limit,
     });
 
     return products.map((p) => this.mapProductWithRelations(p));

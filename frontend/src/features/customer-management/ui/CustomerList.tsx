@@ -3,7 +3,6 @@
  * Lista de clientes con búsqueda y filtrado
  */
 
-import { useState } from 'react';
 import { Search, Trash2, Edit, UserPlus } from 'lucide-react';
 import { Card, Button, Input, Loading } from '@/shared/ui';
 import { CustomerWithRelationsDto } from '@small-billing/shared';
@@ -14,6 +13,13 @@ interface CustomerListProps {
   onDelete: (id: string) => void;
   onEdit?: (customer: CustomerWithRelationsDto) => void;
   onAdd?: () => void;
+  disableAdd?: boolean;
+  searchQuery: string;
+  onSearchChange: (value: string) => void;
+  page?: number;
+  canGoNext?: boolean;
+  onNextPage?: () => void;
+  onPrevPage?: () => void;
 }
 
 export function CustomerList({ 
@@ -21,34 +27,15 @@ export function CustomerList({
   isLoading, 
   onDelete, 
   onEdit, 
-  onAdd 
+  onAdd,
+  disableAdd,
+  searchQuery,
+  onSearchChange,
+  page,
+  canGoNext,
+  onNextPage,
+  onPrevPage,
 }: CustomerListProps) {
-  const [searchQuery, setSearchQuery] = useState('');
-
-  const filteredCustomers = customers.filter((customer) => {
-    const people = customer.people;
-    if (!people) return false;
-    
-    const searchLower = searchQuery.toLowerCase();
-    return (
-      people.firstName?.toLowerCase().includes(searchLower) ||
-      people.lastName?.toLowerCase().includes(searchLower) ||
-      people.mainEmail?.toLowerCase().includes(searchLower) ||
-      people.phone?.includes(searchQuery) ||
-      people.rucCi?.includes(searchQuery)
-    );
-  });
-
-  if (isLoading) {
-    return (
-      <Loading 
-        variant="pulse" 
-        size="lg" 
-        message="Cargando clientes..." 
-      />
-    );
-  }
-
   return (
     <div className="space-y-6">
       {/* Search Bar */}
@@ -59,12 +46,16 @@ export function CustomerList({
             type="text"
             placeholder="Buscar clientes por nombre, RUC, email o teléfono..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => onSearchChange(e.target.value)}
             className="pl-10"
           />
         </div>
         {onAdd && (
-          <Button onClick={onAdd} className="flex items-center gap-2">
+          <Button
+            onClick={onAdd}
+            disabled={disableAdd}
+            className="flex items-center gap-2"
+          >
             <UserPlus className="w-5 h-5" />
             Nuevo Cliente
           </Button>
@@ -73,8 +64,9 @@ export function CustomerList({
 
       {/* Customers Table */}
       <Card variant="elevated" className="overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
+        <div className="relative">
+          <div className="overflow-x-auto">
+            <table className="w-full">
             <thead className="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -97,19 +89,19 @@ export function CustomerList({
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-              {filteredCustomers.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center">
-                    <p className="text-gray-600 dark:text-gray-400">
-                      {searchQuery 
-                        ? 'No se encontraron clientes con ese criterio' 
-                        : 'No hay clientes registrados'}
-                    </p>
-                  </td>
-                </tr>
-              ) : (
-                filteredCustomers.map((customer) => {
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                {customers.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center">
+                      <p className="text-gray-600 dark:text-gray-400">
+                        {searchQuery 
+                          ? 'No se encontraron clientes con ese criterio' 
+                          : 'No hay clientes registrados'}
+                      </p>
+                    </td>
+                  </tr>
+                ) : (
+                  customers.map((customer) => {
                   const people = customer.people;
                   const firstName = people?.firstName || '';
                   const lastName = people?.lastName || '';
@@ -152,7 +144,7 @@ export function CustomerList({
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full badge-info">
-                          {customer.customerCategoryId ? `Cat. ${customer.customerCategoryId}` : 'Sin categoría'}
+                          {customer.customerCategory?.name || 'Sin categoría'}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -180,16 +172,41 @@ export function CustomerList({
                     </tr>
                   );
                 })
-              )}
-            </tbody>
-          </table>
+                )}
+              </tbody>
+            </table>
+          </div>
+          {isLoading && (
+            <div className="absolute inset-0 bg-white/70 dark:bg-gray-900/60 backdrop-blur-[1px] flex items-center justify-center">
+              <Loading variant="spinner" size="lg" message="Buscando..." />
+            </div>
+          )}
         </div>
       </Card>
 
       {/* Stats */}
-      {filteredCustomers.length > 0 && (
-        <div className="text-sm text-gray-600 dark:text-gray-400">
-          Mostrando {filteredCustomers.length} de {customers.length} clientes
+      {customers.length > 0 && (
+        <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
+          <span>Mostrando {customers.length} clientes</span>
+          {page && onNextPage && onPrevPage && (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                onClick={onPrevPage}
+                disabled={page <= 1}
+              >
+                Anterior
+              </Button>
+              <span>Pagina {page}</span>
+              <Button
+                variant="ghost"
+                onClick={onNextPage}
+                disabled={!canGoNext}
+              >
+                Siguiente
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>

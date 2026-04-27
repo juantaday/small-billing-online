@@ -1,4 +1,4 @@
-import { PersonType } from '@prisma/client';
+import { PersonType } from './PersonType.enum';
 
 // Labels para mostrar en UI
 export const PersonTypeLabels: Record<PersonType, string> = {

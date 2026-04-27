@@ -1,4 +1,4 @@
-import { IdentityType } from '@prisma/client';
+import { IdentityType } from './IdentityType.enum';
 
 // Labels para mostrar en UI
 export const IdentityTypeLabels: Record<IdentityType, string> = {

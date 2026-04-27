@@ -23,7 +23,9 @@ export const ROUTE_ACCESS: Record<string, AppRole[]> = {
   [ROUTES.CUSTOMERS]: ['Admin', 'SaleManager', 'Cajero'],
   [ROUTES.CUSTOMER_CATEGORIES]: ['Admin', 'SaleManager'],
   [ROUTES.REPORTS]: ['Admin', 'SaleManager'],
-  [ROUTES.SETTINGS]: ['Admin'],
+  [ROUTES.SETTINGS_BUSINESS]: ['Admin', 'SaleManager'],
+  [ROUTES.SETTINGS_SYSTEM]: ['Admin'],
+  [ROUTES.SETTINGS_PRINTERS]: ['Admin', 'SaleManager', 'Cajero', 'User'],
   [ROUTES.SECURITY_DEVICES]: ['Admin', 'Security'],
 };
 

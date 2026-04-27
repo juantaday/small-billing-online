@@ -7,7 +7,7 @@ import { useState, useEffect } from 'react';
 import { customerApi } from '@/entities/customer';
 import { CustomerWithRelationsDto } from '@small-billing/shared';
 
-export function useCustomers() {
+export function useCustomers(page?: number, limit?: number) {
   const [customers, setCustomers] = useState<CustomerWithRelationsDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -16,7 +16,7 @@ export function useCustomers() {
     try {
       setIsLoading(true);
       setError(null);
-      const data = await customerApi.getAll();
+      const data = await customerApi.getAll({ page, limit });
       setCustomers(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar clientes');
@@ -28,7 +28,7 @@ export function useCustomers() {
 
   useEffect(() => {
     loadCustomers();
-  }, []);
+  }, [page, limit]);
 
   const deleteCustomer = async (id: string) => {
     try {

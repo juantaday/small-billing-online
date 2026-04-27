@@ -1,2 +1,7 @@
-// Re-exportar el enum de Prisma para mantener consistencia
-export { PersonType } from '@prisma/client';
+/**
+ * Tipo de persona
+ */
+export enum PersonType {
+	NATURAL = 'NATURAL',
+	JURIDICA = 'JURIDICA',
+}

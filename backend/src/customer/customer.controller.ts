@@ -23,8 +23,17 @@ export class CustomerController {
   constructor(private readonly customerService: CustomerService) {}
 
   @Get()
-  async findAll(): Promise<CustomerWithRelationsDto[]> {
-    return this.customerService.findAll();
+  async findAll(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ): Promise<CustomerWithRelationsDto[]> {
+    const parsedPage = Math.max(parseInt(page || '1', 10) || 1, 1);
+    const parsedLimit = Math.min(Math.max(parseInt(limit || '10', 10) || 10, 1), 100);
+
+    return this.customerService.findAll({
+      page: parsedPage,
+      limit: parsedLimit,
+    });
   }
 
   @Get('top')

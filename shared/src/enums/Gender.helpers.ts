@@ -1,4 +1,4 @@
-import { Gender } from '@prisma/client';
+import { Gender } from './Gender.enum';
 
 // Labels para mostrar en UI
 export const GenderLabels: Record<Gender, string> = {

@@ -19,8 +19,35 @@ class ProductApi extends BaseApiClient {
     super(API_CONFIG.BASE_URL);
   }
 
-  async getAll(): Promise<ProductWithRelationsDto[]> {
-    return this.get<ProductWithRelationsDto[]>('/products');
+  async getAll(params?: {
+    page?: number;
+    limit?: number;
+    categoryId?: string;
+  }): Promise<ProductWithRelationsDto[]> {
+    const queryParams: Record<string, string | number> = {};
+
+    if (params?.page) queryParams.page = params.page;
+    if (params?.limit) queryParams.limit = params.limit;
+    if (params?.categoryId) queryParams.categoryId = params.categoryId;
+
+    return this.get<ProductWithRelationsDto[]>('/products', { params: queryParams });
+  }
+
+  async search(
+    term: string,
+    params?: { page?: number; limit?: number; categoryId?: string },
+    options?: { signal?: AbortSignal },
+  ): Promise<ProductWithRelationsDto[]> {
+    const queryParams: Record<string, string | number> = { q: term };
+
+    if (params?.page) queryParams.page = params.page;
+    if (params?.limit) queryParams.limit = params.limit;
+    if (params?.categoryId) queryParams.categoryId = params.categoryId;
+
+    return this.get<ProductWithRelationsDto[]>('/products/search', {
+      params: queryParams,
+      signal: options?.signal,
+    });
   }
 
   async getById(id: string, light = false): Promise<ProductWithRelationsDto> {

@@ -1,3 +1,10 @@
-// Re-exportar el enum de Prisma para mantener consistencia
-export { LoyaltyTransactionType } from '@prisma/client';
+/**
+ * Tipos de movimiento de lealtad
+ */
+export enum LoyaltyTransactionType {
+	EARNED = 'EARNED',
+	REDEEMED = 'REDEEMED',
+	EXPIRED = 'EXPIRED',
+	ADJUSTED = 'ADJUSTED',
+}
 

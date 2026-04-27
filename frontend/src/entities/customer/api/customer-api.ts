@@ -17,17 +17,21 @@ class CustomerApi extends BaseApiClient {
     super(API_CONFIG.BASE_URL);
   }
 
-  async getAll(): Promise<CustomerWithRelationsDto[]> {
-    return this.get<CustomerWithRelationsDto[]>('/customers');
+  async getAll(params?: { page?: number; limit?: number }): Promise<CustomerWithRelationsDto[]> {
+    return this.get<CustomerWithRelationsDto[]>('/customers', { params });
   }
 
   async getById(id: string): Promise<CustomerWithRelationsDto> {
     return this.get<CustomerWithRelationsDto>(`/customers/${id}`);
   }
 
-  async search(term: string): Promise<CustomerWithRelationsDto[]> {
+  async search(
+    term: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<CustomerWithRelationsDto[]> {
     return this.get<CustomerWithRelationsDto[]>('/customers/search', {
       params: { q: term },
+      signal: options?.signal,
     });
   }
 

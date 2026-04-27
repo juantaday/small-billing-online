@@ -3,16 +3,17 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { createHash } from 'crypto';
 import {
-  IdentityType,
-  PaymentMethodType,
-  PersonType,
   Prisma,
-  SaleStatus,
 } from '@prisma/client';
 import {
   CreateSaleDto,
+  IdentityType,
+  PaymentMethodType,
+  PersonType,
   SaleDto,
+  SaleStatus,
   SaleWithRelationsDto,
   UpdateSaleDto,
 } from '@small-billing/shared';
@@ -25,6 +26,10 @@ import { TerminalSettingsService } from '../terminal-settings/terminal-settings.
 const DEFAULT_TERMINAL_CODE = 'CAJA_001';
 const CONSUMER_FINAL_RUC = '9999999999999';
 const CONSUMER_FINAL_CATEGORY_NAME = 'Usuario Final';
+
+function hashDeviceToken(rawToken: string): string {
+  return createHash('sha256').update(rawToken).digest('hex');
+}
 
 function toNumber(value: Prisma.Decimal | number | null | undefined): number {
   if (value === null || value === undefined) return 0;
@@ -131,6 +136,7 @@ export class SaleService {
   }> {
     const requestedTerminalId = Number.isInteger(data.terminalId) ? data.terminalId : undefined;
     const requestedTerminalCode = data.terminalCode?.trim();
+    const requestedDeviceToken = data.deviceToken?.trim();
     const envTerminalCode = process.env.POS_TERMINAL_CODE?.trim();
     const effectiveTerminalCode = requestedTerminalCode || envTerminalCode || DEFAULT_TERMINAL_CODE;
     const requestedDocumentTypeId = Number.isInteger(data.documentTypeId)
@@ -149,6 +155,28 @@ export class SaleService {
         `Tipo de documento con ID ${requestedDocumentTypeId} no existe o está inactivo.`,
       );
     }
+
+    const byDevice = requestedDeviceToken
+      ? await this.prisma.device.findUnique({
+          where: { deviceToken: hashDeviceToken(requestedDeviceToken) },
+          include: {
+            terminal: {
+              select: {
+                id: true,
+                code: true,
+                active: true,
+                emissionPoint: true,
+                warehouse: {
+                  select: {
+                    establishmentCode: true,
+                    active: true,
+                  },
+                },
+              },
+            },
+          },
+        })
+      : null;
 
     const byId =
       requestedTerminalId !== undefined
@@ -169,7 +197,7 @@ export class SaleService {
           })
         : null;
 
-    const byCode = !byId
+      const byCode = !byDevice && !byId
       ? await this.prisma.terminal.findUnique({
           where: { code: effectiveTerminalCode },
           select: {
@@ -187,7 +215,7 @@ export class SaleService {
         })
       : null;
 
-    const terminal = byId || byCode;
+    const terminal = byDevice?.terminal || byId || byCode;
 
     if (terminal && terminal.active && terminal.warehouse.active) {
       return {
@@ -198,14 +226,22 @@ export class SaleService {
       };
     }
 
-    if (requestedTerminalId !== undefined || requestedTerminalCode || envTerminalCode) {
+    if (byDevice?.terminal && (!byDevice.terminal.active || !byDevice.terminal.warehouse.active)) {
+      throw new BadRequestException(
+        `El dispositivo está vinculado a la terminal ${byDevice.terminal.code}, pero esa terminal o su bodega están inactivas. Actívalas antes de facturar.`,
+      );
+    }
+
+    if (requestedTerminalId !== undefined || requestedTerminalCode || requestedDeviceToken || envTerminalCode) {
       const invalidTerminalRef =
         requestedTerminalId !== undefined
           ? `ID ${requestedTerminalId}`
+          : requestedDeviceToken
+            ? `del dispositivo ${requestedDeviceToken.slice(-6)}`
           : `código ${effectiveTerminalCode}`;
 
       throw new BadRequestException(
-        `Terminal ${invalidTerminalRef} no existe o está inactiva. Configura una terminal activa en la bodega correspondiente.`,
+        `Terminal ${invalidTerminalRef} no existe o está inactiva. Configura una terminal activa y vincula el dispositivo correcto.`,
       );
     }
 
@@ -404,8 +440,9 @@ export class SaleService {
       invoiceNumber: sale.invoiceNumber,
       customerId: sale.customerId,
       userId: sale.userId,
-      terminalId: sale.terminalId || undefined,
+      terminalId: sale.terminalId,
       documentTypeId: sale.documentTypeId,
+      deviceId: sale.deviceId,
       subtotal: toNumber(sale.subtotal),
       taxAmount: toNumber(sale.taxAmount),
       total: toNumber(sale.total),
@@ -474,8 +511,9 @@ export class SaleService {
       invoiceNumber: sale.invoiceNumber,
       customerId: sale.customerId,
       userId: sale.userId,
-      terminalId: sale.terminalId || undefined,
+      terminalId: sale.terminalId,
       documentTypeId: sale.documentTypeId,
+      deviceId: sale.deviceId,
       subtotal: toNumber(sale.subtotal),
       taxAmount: toNumber(sale.taxAmount),
       total: toNumber(sale.total),
@@ -532,6 +570,10 @@ export class SaleService {
 
     if (!data.payments?.length) {
       throw new BadRequestException('La venta debe contener al menos un método de pago');
+    }
+
+    if (!data.deviceToken) {
+      throw new BadRequestException('Debes enviar deviceToken para registrar la venta');
     }
 
     const customerId = await this.resolveCustomerId(data);
@@ -784,37 +826,23 @@ export class SaleService {
           : SaleStatus.PARTIAL_PAYMENT;
 
     const createdSale = await this.prisma.$transaction(async (tx) => {
-      const terminalSequenceSettings = await tx.terminalSettings.upsert({
-        where: {
-          terminalId_documentTypeId: {
-            terminalId: terminalConfig.terminalId,
-            documentTypeId: terminalConfig.documentTypeId,
-          },
-        },
-        update: {
-          lastSequential: {
-            increment: 1,
-          },
-        },
-        create: {
-          terminalId: terminalConfig.terminalId,
-          documentTypeId: terminalConfig.documentTypeId,
-          maxItems: 100,
-          enabled: true,
-          lastSequential: 1,
-        },
-      });
+      const generatedInvoiceRows = await tx.$queryRaw<Array<{ invoice_number: string }>>`
+        SELECT public.generate_sale_invoice_number(
+          ${terminalConfig.terminalId}::integer,
+          ${terminalConfig.documentTypeId}::integer
+        ) AS invoice_number
+      `;
 
-      const invoiceNumber = `${terminalConfig.establishment}-${terminalConfig.pointOfSale}-${String(terminalSequenceSettings.lastSequential).padStart(9, '0')}`;
-
-      // Obtener ID del dispositivo si se proporcionó
-      let deviceId: string | undefined = undefined;
-      if (data.deviceToken) {
-        const device = await this.deviceService.getDeviceByToken(data.deviceToken);
-        deviceId = device.id;
-        // Actualizar última conexión del dispositivo
-        await this.deviceService.updateLastSeen(data.deviceToken);
+      const invoiceNumber = generatedInvoiceRows[0]?.invoice_number;
+      if (!invoiceNumber) {
+        throw new BadRequestException('No se pudo generar la numeración del documento');
       }
+
+      // Obtener ID del dispositivo (requerido)
+      const device = await this.deviceService.getDeviceByToken(data.deviceToken);
+      const deviceId = device.id;
+      // Actualizar última conexión del dispositivo
+      await this.deviceService.updateLastSeen(data.deviceToken);
 
       const sale = await tx.sale.create({
         data: {
@@ -939,6 +967,7 @@ export class SaleService {
       userId: createdSale.userId,
       terminalId: createdSale.terminalId || undefined,
       documentTypeId: createdSale.documentTypeId,
+      deviceId: createdSale.deviceId,
       subtotal: toNumber(createdSale.subtotal),
       taxAmount: toNumber(createdSale.taxAmount),
       total: toNumber(createdSale.total),
@@ -1004,6 +1033,7 @@ export class SaleService {
         customerId: sale.customerId,
         userId: sale.userId,
         terminalId: sale.terminalId || undefined,
+        deviceId: sale.deviceId || undefined,
         documentTypeId: sale.documentTypeId,
         subtotal: toNumber(sale.subtotal),
         taxAmount: toNumber(sale.taxAmount),

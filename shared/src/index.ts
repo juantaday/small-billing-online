@@ -1,3 +1,22 @@
+// ==================== ENUMS ====================
+export * from './enums/PersonType.enum';
+export * from './enums/IdentityType.enum';
+export * from './enums/Gender.enum';
+export * from './enums/LoyaltyTransactionType.enum';
+export * from './enums/RewardType.enum';
+export * from './enums/PaymentMethodType.enum';
+export * from './enums/CardType.enum';
+export * from './enums/SaleStatus.enum';
+export * from './enums/BusinessTypeGroup.enum';
+
+// ==================== ENUM HELPERS ====================
+export * from './enums/PersonType.helpers';
+export * from './enums/IdentityType.helpers';
+export * from './enums/Gender.helpers';
+export * from './enums/PaymentMethodType.helpers';
+export * from './enums/CardType.helpers';
+export * from './enums/SaleStatus.helpers';
+
 // ==================== ENTITIES ====================
 export * from './entities/People.entity';
 export * from './entities/User.entity';
@@ -21,21 +40,6 @@ export * from './entities/Terminal.entity';
 export * from './entities/Sale.entity';
 export * from './entities/Credit.entity';
 export * from './entities/InvoiceSequence.entity';
+export * from './entities/BusinessType.entity';
+export * from './entities/BusinessDetails.entity';
 
-// ==================== ENUMS ====================
-export * from './enums/PersonType.enum';
-export * from './enums/IdentityType.enum';
-export * from './enums/Gender.enum';
-export * from './enums/LoyaltyTransactionType.enum';
-export * from './enums/RewardType.enum';
-export * from './enums/PaymentMethodType.enum';
-export * from './enums/CardType.enum';
-export * from './enums/SaleStatus.enum';
-
-// ==================== ENUM HELPERS ====================
-export * from './enums/PersonType.helpers';
-export * from './enums/IdentityType.helpers';
-export * from './enums/Gender.helpers';
-export * from './enums/PaymentMethodType.helpers';
-export * from './enums/CardType.helpers';
-export * from './enums/SaleStatus.helpers';

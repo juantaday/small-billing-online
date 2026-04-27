@@ -16,7 +16,8 @@ import {
   CustomerCategoryDto,
   CreateCustomerCategoryDto,
   PersonType,
-  IdentityType
+  IdentityType,
+  getIdentityTypeOptions,
 } from '@small-billing/shared';
 
 interface CustomerFormProps {
@@ -26,6 +27,8 @@ interface CustomerFormProps {
 }
 
 export function CustomerForm({ customer, onSuccess, onCancel }: CustomerFormProps) {
+  const identityTypeOptions = getIdentityTypeOptions();
+
   const [peopleData, setPeopleData] = useState<CreatePeopleDto>({
     firstName: '',
     lastName: '',
@@ -83,8 +86,8 @@ export function CustomerForm({ customer, onSuccess, onCancel }: CustomerFormProp
       setCategories(data);
       
       // Si no hay categoría seleccionada y hay categorías disponibles, seleccionar la primera
-      if (!customerCategoryId && data.length > 0) {
-        setCustomerCategoryId(data[0].id);
+      if (data.length > 0) {
+        setCustomerCategoryId((prev) => prev || data[0].id);
       }
     } catch (err) {
       console.error('Error al cargar categorías:', err);
@@ -237,9 +240,11 @@ export function CustomerForm({ customer, onSuccess, onCancel }: CustomerFormProp
                 required
                 className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50"
               >
-                <option value={IdentityType.CEDULA}>Cédula</option>
-                <option value={IdentityType.RUC}>RUC</option>
-                <option value={IdentityType.PASAPORTE}>Pasaporte</option>
+                {identityTypeOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
               </select>
             </div>
 

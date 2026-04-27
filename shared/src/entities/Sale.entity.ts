@@ -93,9 +93,9 @@ export interface SaleDto {
   invoiceNumber: string;
   customerId: string;
   userId: string;
-  terminalId?: number;
+  terminalId: number;
   documentTypeId: number;
-  deviceId?: string;
+  deviceId: string;
   subtotal: number;
   taxAmount: number;
   total: number;
@@ -113,7 +113,7 @@ export interface CreateSaleDto {
   userId: string;
   terminalId?: number;
   terminalCode?: string;
-  deviceToken?: string; // Token del dispositivo que origina la venta
+  deviceToken: string; // Token del dispositivo que origina la venta
   documentTypeId?: number; // Tipo de documento (por defecto 1 = Factura)
   details: CreateSaleDetailDto[];
   payments: CreateSalePaymentDto[];

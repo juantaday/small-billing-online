@@ -11,19 +11,26 @@ import {
 import { useToastContext } from '@/app/providers/toast/ToastProvider';
 import {
   CreateDocumentTypeDto,
+  CreateBusinessDetailsDto,
   CreateTerminalDto,
   CreateTerminalSettingsDto,
   CreateWarehouseDto,
+  BusinessDetailsDto,
+  BusinessTypeDto,
+  BusinessTypeGroup,
   DocumentTypeDto,
   LogoSize,
   TerminalDto,
   TerminalSettingsDto,
+  UpdateBusinessDetailsDto,
   UpdateDocumentTypeDto,
   UpdateTerminalDto,
   UpdateTerminalSettingsDto,
   UpdateWarehouseDto,
   WarehouseDto,
 } from '@small-billing/shared';
+import { businessTypeApi } from '@/entities/business-type';
+import { businessDetailsApi } from '@/entities/business-details';
 import { documentTypeApi } from '@/entities/document-type';
 import { warehouseApi } from '@/entities/warehouse';
 import { terminalApi } from '@/entities/terminal';
@@ -32,7 +39,7 @@ import { deviceApi } from '@/entities/device';
 import { getDevice } from '@/shared/device.util';
 import { API_CONFIG } from '@/shared/config';
 
-type SectionKey = 'document-types' | 'warehouses' | 'terminals' | 'printer-settings' | 'sequences';
+type SectionKey = 'business' | 'document-types' | 'warehouses' | 'terminals' | 'printer-settings' | 'sequences';
 
 type DocumentTypeForm = CreateDocumentTypeDto & { id?: number };
 type WarehouseForm = CreateWarehouseDto & { id?: number };
@@ -46,6 +53,8 @@ type SequenceForm = {
   documentTypeId: number;
   lastSequential: number;
 };
+
+type BusinessDetailsForm = CreateBusinessDetailsDto & { id?: string };
 
 type TerminalSettingRow = TerminalSettingsDto & {
   terminal?: TerminalDto & { warehouse?: WarehouseDto };
@@ -93,11 +102,24 @@ const defaultSequenceForm = (): SequenceForm => ({
   lastSequential: 0,
 });
 
+const defaultBusinessDetailsForm = (): BusinessDetailsForm => ({
+  ruc: '',
+  legalName: '',
+  commercialName: '',
+  tradeName: '',
+  phone: '',
+  address: '',
+  legalNatureId: 0,
+  taxRegimeId: 0,
+  specialDesignationId: undefined,
+});
+
 function padSequential(value: number): string {
   return String(Math.max(1, value)).padStart(9, '0');
 }
 
 const sectionLabels: Record<SectionKey, string> = {
+  business: 'Negocio',
   'document-types': 'Tipos de documento',
   warehouses: 'Bodegas',
   terminals: 'Terminales',
@@ -105,10 +127,22 @@ const sectionLabels: Record<SectionKey, string> = {
   sequences: 'Secuenciales',
 };
 
-export function SettingsPage() {
+export function SettingsPage({ section: initialSection = 'business' }: { section?: 'business' | 'system' | 'printers' }) {
   const { success, error } = useToastContext();
 
-  const [activeSection, setActiveSection] = useState<SectionKey>('document-types');
+  const [activeSection, setActiveSection] = useState<SectionKey>(
+    initialSection === 'business' ? 'business' :
+    initialSection === 'system' ? 'document-types' : 'printer-settings'
+  );
+
+  // Update active section when props change
+  useEffect(() => {
+    setActiveSection(
+      initialSection === 'business' ? 'business' :
+      initialSection === 'system' ? 'document-types' : 'printer-settings'
+    );
+  }, [initialSection]);
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [reloadTick, setReloadTick] = useState(0);
@@ -118,12 +152,15 @@ export function SettingsPage() {
   const [terminals, setTerminals] = useState<TerminalDto[]>([]);
   const [terminalSettings, setTerminalSettings] = useState<TerminalSettingRow[]>([]);
   const [currentTerminalId, setCurrentTerminalId] = useState<number | undefined>(undefined);
+  const [businessTypes, setBusinessTypes] = useState<BusinessTypeDto[]>([]);
+  const [businessDetails, setBusinessDetails] = useState<BusinessDetailsDto | null>(null);
 
   const [documentTypeForm, setDocumentTypeForm] = useState<DocumentTypeForm>(defaultDocumentTypeForm());
   const [warehouseForm, setWarehouseForm] = useState<WarehouseForm>(defaultWarehouseForm());
   const [terminalForm, setTerminalForm] = useState<TerminalForm>(defaultTerminalForm());
   const [terminalSettingsForm, setTerminalSettingsForm] = useState<TerminalSettingsForm>(defaultTerminalSettingsForm());
   const [sequenceForm, setSequenceForm] = useState<SequenceForm>(defaultSequenceForm());
+  const [businessDetailsForm, setBusinessDetailsForm] = useState<BusinessDetailsForm>(defaultBusinessDetailsForm());
   const [documentTypePreviewTerminalId, setDocumentTypePreviewTerminalId] = useState<number | undefined>(
     undefined,
   );
@@ -144,11 +181,20 @@ export function SettingsPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [documentTypesData, warehousesData, terminalsData, deviceData] = await Promise.all([
+      const [
+        documentTypesData,
+        warehousesData,
+        terminalsData,
+        deviceData,
+        businessTypesData,
+        businessDetailsData,
+      ] = await Promise.all([
         documentTypeApi.getAll(),
         warehouseApi.getAll(),
         terminalApi.getAll(),
         getDevice(API_CONFIG.BASE_URL).catch(() => null),
+        businessTypeApi.getAll().catch(() => []),
+        businessDetailsApi.getCurrent().catch(() => null),
       ]);
 
       const devicesData = await deviceApi.getAll().catch(() => []);
@@ -167,6 +213,8 @@ export function SettingsPage() {
       setWarehouses(warehousesData);
       setTerminals(terminalsData);
       setTerminalSettings(terminalSettingsData.flat() as TerminalSettingRow[]);
+      setBusinessTypes(businessTypesData);
+      setBusinessDetails(businessDetailsData);
 
       const resolvedTerminalId =
         typeof deviceData?.terminalId === 'number'
@@ -185,6 +233,34 @@ export function SettingsPage() {
 
       const fallbackTerminalId = pairedTerminalIds.length === 1 ? pairedTerminalIds[0] : undefined;
       setCurrentTerminalId(resolvedTerminalId ?? fallbackTerminalId);
+
+      const legalNatureDefault = businessTypesData.find(
+        (item) => item.group === BusinessTypeGroup.LEGAL_NATURE && item.active,
+      )?.id;
+      const taxRegimeDefault = businessTypesData.find(
+        (item) => item.group === BusinessTypeGroup.TAX_REGIME && item.active,
+      )?.id;
+
+      if (businessDetailsData) {
+        setBusinessDetailsForm({
+          id: businessDetailsData.id,
+          ruc: businessDetailsData.ruc,
+          legalName: businessDetailsData.legalName,
+          commercialName: businessDetailsData.commercialName || '',
+          tradeName: businessDetailsData.tradeName || '',
+          phone: businessDetailsData.phone || '',
+          address: businessDetailsData.address || '',
+          legalNatureId: businessDetailsData.legalNatureId,
+          taxRegimeId: businessDetailsData.taxRegimeId,
+          specialDesignationId: businessDetailsData.specialDesignationId || undefined,
+        });
+      } else {
+        setBusinessDetailsForm({
+          ...defaultBusinessDetailsForm(),
+          legalNatureId: legalNatureDefault || 0,
+          taxRegimeId: taxRegimeDefault || 0,
+        });
+      }
     } catch (loadError) {
       console.error('Error cargando configuración', loadError);
       error('Error de carga', 'No se pudieron cargar los catálogos de configuración.');
@@ -383,6 +459,16 @@ export function SettingsPage() {
     warehouseById,
   ]);
 
+  const legalNatureOptions = businessTypes.filter(
+    (item) => item.group === BusinessTypeGroup.LEGAL_NATURE && item.active,
+  );
+  const taxRegimeOptions = businessTypes.filter(
+    (item) => item.group === BusinessTypeGroup.TAX_REGIME && item.active,
+  );
+  const specialDesignationOptions = businessTypes.filter(
+    (item) => item.group === BusinessTypeGroup.SPECIAL_DESIGNATION && item.active,
+  );
+
   const saveDocumentType = async () => {
     try {
       setSaving(true);
@@ -576,21 +662,83 @@ export function SettingsPage() {
     }
   };
 
+  const saveBusinessDetails = async () => {
+    if (!businessDetailsForm.ruc.trim()) {
+      error('RUC requerido', 'Ingresa el RUC del negocio.');
+      return;
+    }
+
+    if (!businessDetailsForm.legalName.trim()) {
+      error('Razón social requerida', 'Ingresa la razón social del negocio.');
+      return;
+    }
+
+    if (!businessDetailsForm.legalNatureId || !businessDetailsForm.taxRegimeId) {
+      error('Tipos requeridos', 'Selecciona naturaleza legal y régimen tributario.');
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const payload = {
+        ruc: businessDetailsForm.ruc.trim(),
+        legalName: businessDetailsForm.legalName.trim(),
+        commercialName: businessDetailsForm.commercialName?.trim() || null,
+        tradeName: businessDetailsForm.tradeName?.trim() || null,
+        phone: businessDetailsForm.phone?.trim() || null,
+        address: businessDetailsForm.address?.trim() || null,
+        legalNatureId: Number(businessDetailsForm.legalNatureId),
+        taxRegimeId: Number(businessDetailsForm.taxRegimeId),
+        specialDesignationId: businessDetailsForm.specialDesignationId || null,
+      } satisfies CreateBusinessDetailsDto;
+
+      if (businessDetailsForm.id) {
+        await businessDetailsApi.update(businessDetailsForm.id, {
+          id: businessDetailsForm.id,
+          ...payload,
+        } satisfies UpdateBusinessDetailsDto);
+        success('Actualizado', 'Datos del negocio actualizados correctamente.');
+      } else {
+        const created = await businessDetailsApi.create(payload);
+        setBusinessDetailsForm((prev) => ({ ...prev, id: created.id }));
+        success('Creado', 'Datos del negocio guardados correctamente.');
+      }
+
+      await refreshData();
+    } catch (saveError) {
+      console.error('Error guardando datos del negocio', saveError);
+      error('Error', 'No se pudo guardar la configuración del negocio.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const loadingContent = <Loading fullscreen message="Cargando configuración..." />;
 
   if (loading) {
     return loadingContent;
   }
 
+  const getAllowedSections = (): SectionKey[] => {
+    if (initialSection === 'business') return ['business', 'warehouses'];
+    if (initialSection === 'system') return ['document-types', 'terminals', 'sequences'];
+    return ['printer-settings'];
+  };
+
+  const allowedSections = getAllowedSections();
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
-            Configuración del sistema
+            {initialSection === 'business' ? 'Configuración del Negocio' :
+             initialSection === 'system' ? 'Configuración del Sistema' : 'Configuración de Impresoras'}
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Gestiona tipos de documento, terminales, impresoras y secuencias desde una sola pantalla.
+            Gestiona {initialSection === 'business' ? 'los datos de tu negocio y bodegas.' :
+                       initialSection === 'system' ? 'tipos de documento, terminales y secuenciales.' :
+                       'las impresoras y límites de impresión en tu equipo local.'}
           </p>
         </div>
 
@@ -604,7 +752,7 @@ export function SettingsPage() {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {(Object.keys(sectionLabels) as SectionKey[]).map((section) => (
+        {allowedSections.map((section) => (
           <button
             key={section}
             onClick={() => setActiveSection(section)}
@@ -619,6 +767,133 @@ export function SettingsPage() {
           </button>
         ))}
       </div>
+
+      {activeSection === 'business' && (
+        <Card className="p-5 space-y-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Negocio</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Configura los datos del negocio y su clasificación SRI para facturación electrónica.
+              </p>
+            </div>
+
+            <Button onClick={() => void saveBusinessDetails()} disabled={saving}>
+              {saving ? 'Guardando...' : 'Guardar cambios'}
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Input
+              label="RUC"
+              value={businessDetailsForm.ruc}
+              onChange={(event) => setBusinessDetailsForm((prev) => ({ ...prev, ruc: event.target.value }))}
+            />
+            <Input
+              label="Razón social"
+              value={businessDetailsForm.legalName}
+              onChange={(event) => setBusinessDetailsForm((prev) => ({ ...prev, legalName: event.target.value }))}
+            />
+            <Input
+              label="Nombre comercial"
+              value={businessDetailsForm.commercialName || ''}
+              onChange={(event) => setBusinessDetailsForm((prev) => ({ ...prev, commercialName: event.target.value }))}
+            />
+            <Input
+              label="Nombre de fantasía"
+              value={businessDetailsForm.tradeName || ''}
+              onChange={(event) => setBusinessDetailsForm((prev) => ({ ...prev, tradeName: event.target.value }))}
+            />
+            <Input
+              label="Teléfono"
+              value={businessDetailsForm.phone || ''}
+              onChange={(event) => setBusinessDetailsForm((prev) => ({ ...prev, phone: event.target.value }))}
+            />
+            <Input
+              label="Dirección"
+              value={businessDetailsForm.address || ''}
+              onChange={(event) => setBusinessDetailsForm((prev) => ({ ...prev, address: event.target.value }))}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Naturaleza legal
+              </label>
+              <select
+                value={businessDetailsForm.legalNatureId || ''}
+                onChange={(event) =>
+                  setBusinessDetailsForm((prev) => ({ ...prev, legalNatureId: Number(event.target.value) }))
+                }
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+              >
+                <option value="" disabled>
+                  Selecciona naturaleza legal
+                </option>
+                {legalNatureOptions.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Régimen tributario
+              </label>
+              <select
+                value={businessDetailsForm.taxRegimeId || ''}
+                onChange={(event) =>
+                  setBusinessDetailsForm((prev) => ({ ...prev, taxRegimeId: Number(event.target.value) }))
+                }
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+              >
+                <option value="" disabled>
+                  Selecciona régimen tributario
+                </option>
+                {taxRegimeOptions.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Designación especial (opcional)
+              </label>
+              <select
+                value={businessDetailsForm.specialDesignationId || ''}
+                onChange={(event) =>
+                  setBusinessDetailsForm((prev) => ({
+                    ...prev,
+                    specialDesignationId: event.target.value ? Number(event.target.value) : undefined,
+                  }))
+                }
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+              >
+                <option value="">Sin designación especial</option>
+                {specialDesignationOptions.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {businessDetails && (
+            <div className="rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4 text-sm">
+              <p className="text-gray-600 dark:text-gray-300">
+                Última actualización: {new Date(businessDetails.updatedAt).toLocaleString()}
+              </p>
+            </div>
+          )}
+        </Card>
+      )}
 
       {activeSection === 'document-types' && (
         <Card className="p-5 space-y-4">

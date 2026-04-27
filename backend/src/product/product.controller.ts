@@ -54,11 +54,41 @@ export class ProductController {
   @Get()
   async findAll(
     @Query('categoryId') categoryId?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
   ): Promise<ProductWithRelationsDto[]> {
-    if (categoryId) {
-      return this.productService.findByCategory(categoryId);
+    const pageNumber = page ? Number(page) : undefined;
+    const limitNumber = limit ? Number(limit) : undefined;
+    const normalizedCategoryId =
+      categoryId && categoryId !== 'undefined' && categoryId !== 'null' ? categoryId : undefined;
+
+    if (!pageNumber && !limitNumber && normalizedCategoryId) {
+      return this.productService.findByCategory(normalizedCategoryId);
     }
-    return this.productService.findAll();
+
+    return this.productService.findAll({
+      page: pageNumber,
+      limit: limitNumber,
+      categoryId: normalizedCategoryId,
+    });
+  }
+
+  @Get('search')
+  async search(
+    @Query('q') q?: string,
+    @Query('categoryId') categoryId?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ): Promise<ProductWithRelationsDto[]> {
+    const pageNumber = page ? Number(page) : undefined;
+    const limitNumber = limit ? Number(limit) : undefined;
+    const normalizedCategoryId =
+      categoryId && categoryId !== 'undefined' && categoryId !== 'null' ? categoryId : undefined;
+    return this.productService.search(q || '', {
+      page: pageNumber,
+      limit: limitNumber,
+      categoryId: normalizedCategoryId,
+    });
   }
 
   @Get('featured')

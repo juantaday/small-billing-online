@@ -3,7 +3,7 @@
  * Gestión de productos con API
  */
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { productApi } from './product-api';
 import {
   ProductDto,
@@ -14,22 +14,30 @@ import {
   QuickAddInventoryDto,
 } from '@small-billing/shared';
 
-export function useProducts() {
+export function useProducts(params?: {
+  page?: number;
+  limit?: number;
+  categoryId?: string;
+}) {
   const [products, setProducts] = useState<ProductWithRelationsDto[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchProducts = async (categoryId?: string) => {
+  const fetchProducts = async (overrides?: {
+    page?: number;
+    limit?: number;
+    categoryId?: string;
+  }) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await productApi.getAll();
+      const data = await productApi.getAll({
+        page: overrides?.page ?? params?.page,
+        limit: overrides?.limit ?? params?.limit,
+        categoryId: overrides?.categoryId ?? params?.categoryId,
+      });
 
-      const filteredData = categoryId
-        ? data.filter((p) => p.categoryId === categoryId)
-        : data;
-
-      setProducts(filteredData);
+      setProducts(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido');
       console.error('Error al cargar productos:', err);
@@ -189,7 +197,7 @@ export function useProducts() {
 
   useEffect(() => {
     fetchProducts();
-  }, []);
+  }, [params?.page, params?.limit, params?.categoryId]);
 
   return {
     products,

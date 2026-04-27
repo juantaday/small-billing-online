@@ -4,14 +4,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
-  PaymentMethodType,
   Prisma,
-  SaleStatus,
 } from '@prisma/client';
 import {
   CreateCreditPaymentDto,
   CreditDto,
   CreditWithRelationsDto,
+  PaymentMethodType,
+  SaleStatus,
 } from '@small-billing/shared';
 import { PrismaService } from '../prisma/prisma.service';
 
