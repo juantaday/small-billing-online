@@ -1,0 +1,22 @@
+{
+  "name": "@sri/nest-module",
+  "version": "1.0.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@nestjs/common": "^10.0.0",
+    "@sri/client": "workspace:*",
+    "@sri/core": "workspace:*",
+    "@sri/persistence-adapter": "workspace:*",
+    "@sri/signer": "workspace:*",
+    "@sri/xml-generator": "workspace:*",
+    "bullmq": "^5.13.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

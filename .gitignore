@@ -26,3 +26,8 @@ dist-ssr
 /src/generated/prisma
 
 .vercel
+
+# Certificados SRI
+certs/
+*.p12
+*.pfx

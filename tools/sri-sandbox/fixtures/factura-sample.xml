@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<factura id="comprobante" version="1.1.0">
+  <infoTributaria>
+    <ambiente>1</ambiente>
+    <tipoEmision>1</tipoEmision>
+    <razonSocial>BOADA ALVARADO ANGEL ELIECER</razonSocial>
+    <nombreComercial>AGROMIRANDA</nombreComercial>
+    <ruc>1204906356001</ruc>
+    <claveAcceso>1404202601120490635600110010020000000051234567819</claveAcceso>
+    <codDoc>01</codDoc>
+    <estab>001</estab>
+    <ptoEmi>002</ptoEmi>
+    <secuencial>000000005</secuencial>
+    <dirMatriz>SIMON BOLIVAR CORONEL LORENZO DE GARAICOA AV PRINCIPAL S/N</dirMatriz>
+    <contribuyenteRimpe>CONTRIBUYENTE NEGOCIO POPULAR - RÉGIMEN RIMPE</contribuyenteRimpe>
+  </infoTributaria>
+  <infoFactura>
+    <fechaEmision>14/04/2026</fechaEmision>
+    <dirEstablecimiento>GRAL CORDOVA Y QUITO NARANJITO GUAYAS</dirEstablecimiento>
+    <obligadoContabilidad>SI</obligadoContabilidad>
+    <tipoIdentificacionComprador>07</tipoIdentificacionComprador>
+    <razonSocialComprador>CONSUMIDOR FINAL</razonSocialComprador>
+    <identificacionComprador>9999999999999</identificacionComprador>
+    <totalSinImpuestos>6.00</totalSinImpuestos>
+    <totalDescuento>0.000</totalDescuento>
+    <totalConImpuestos>
+      <totalImpuesto>
+        <codigo>2</codigo>
+        <codigoPorcentaje>0</codigoPorcentaje>
+        <baseImponible>6.00</baseImponible>
+        <valor>0.00</valor>
+      </totalImpuesto>
+    </totalConImpuestos>
+    <propina>0</propina>
+    <importeTotal>6.00</importeTotal>
+    <moneda>DOLAR</moneda>
+    <pagos>
+      <pago>
+        <formaPago>01</formaPago>
+        <total>6.00</total>
+        <plazo>0</plazo>
+        <unidadTiempo>Dias</unidadTiempo>
+      </pago>
+    </pagos>
+  </infoFactura>
+  <detalles>
+    <detalle>
+      <codigoPrincipal>110</codigoPrincipal>
+      <codigoAuxiliar>162</codigoAuxiliar>
+      <descripcion>HERBOXONE 1LT</descripcion>
+      <unidadMedida>UDN</unidadMedida>
+      <cantidad>1</cantidad>
+      <precioUnitario>6.000</precioUnitario>
+      <descuento>0.000</descuento>
+      <precioTotalSinImpuesto>6.00</precioTotalSinImpuesto>
+      <impuestos>
+        <impuesto>
+          <codigo>2</codigo>
+          <codigoPorcentaje>0</codigoPorcentaje>
+          <tarifa>0.00</tarifa>
+          <baseImponible>6.00</baseImponible>
+          <valor>0.00</valor>
+        </impuesto>
+      </impuestos>
+    </detalle>
+  </detalles>
+  <infoAdicional>
+    <campoAdicional nombre="Hora">22:37:09</campoAdicional>
+    <campoAdicional nombre="Cod.Cliente">6164</campoAdicional>
+    <campoAdicional nombre="Direccion">Naranjito</campoAdicional>
+    <campoAdicional nombre="Telefono">-</campoAdicional>
+    <campoAdicional nombre="Nro Interno">5</campoAdicional>
+  </infoAdicional>
+</factura>

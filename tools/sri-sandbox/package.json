@@ -1,0 +1,19 @@
+{
+  "name": "sri-sandbox",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "build": "pnpm --filter @sri/core --filter @sri/xml-generator --filter @sri/signer build && tsc -p tsconfig.json",
+    "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "@sri/signer": "workspace:*",
+    "@sri/xml-generator": "workspace:*",
+    "libxmljs2": "^0.37.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.15",
+    "typescript": "^5.0.0"
+  }
+}

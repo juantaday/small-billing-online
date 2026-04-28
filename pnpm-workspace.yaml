@@ -1,4 +1,17 @@
 packages:
-  - 'backend'
-  - 'frontend'
-  - 'shared'
+  - backend
+  - frontend
+  - shared
+  - packages/sri-*
+  - apps/*
+  - tools/*
+
+onlyBuiltDependencies:
+  - '@nestjs/core'
+  - '@prisma/client'
+  - '@prisma/engines'
+  - bcrypt
+  - esbuild
+  - libxmljs2
+  - msgpackr-extract
+  - prisma

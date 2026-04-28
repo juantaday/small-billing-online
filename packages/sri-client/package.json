@@ -1,0 +1,17 @@
+{
+  "name": "@sri/client",
+  "version": "1.0.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@sri/core": "workspace:*",
+    "axios": "^1.7.7"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
